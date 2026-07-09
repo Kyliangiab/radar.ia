@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "ingest": "tsx scripts/ingest.ts"
+    "ingest": "UV_THREADPOOL_SIZE=16 tsx scripts/ingest.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

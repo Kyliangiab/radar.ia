@@ -1,9 +1,9 @@
 import Parser from "rss-parser";
 import type { Article, CategoryId } from "./types";
 import { CATEGORY_MAP } from "./categories";
-import { FEEDS, type FeedSource } from "./feeds";
+import type { FeedSource } from "./feeds";
+import { getSupabase } from "./supabase";
 
-const HN_ENDPOINT = "https://hn.algolia.com/api/v1/search";
 const DEVTO_ENDPOINT = "https://dev.to/api/articles";
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
@@ -28,47 +28,8 @@ async function safeFetch(url: string, ms = 6000): Promise<any | null> {
   }
 }
 
-// ── Hacker News (Algolia) ──
-async function fetchHN(category: CategoryId): Promise<Article[]> {
-  const def = CATEGORY_MAP[category];
-  const isFront = !!def.hnFrontPage;
-  let url: string;
-  if (isFront) {
-    url = `${HN_ENDPOINT}?tags=front_page&hitsPerPage=30`;
-  } else {
-    const q = encodeURIComponent(def.hnQuery ?? "");
-    // fenêtre 7 jours : on garde une vraie veille (pas les classiques intemporels)
-    const since = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
-    url = `${HN_ENDPOINT}?query=${q}&tags=story&numericFilters=created_at_i>${since}&hitsPerPage=30`;
-  }
-  const data = await safeFetch(url);
-  const hits: any[] = data?.hits ?? [];
-  // front_page = déjà le top du jour ; en recherche par mot-clé on écarte le bruit
-  const minPoints = isFront ? 0 : 10;
-  return hits
-    .filter((h) => h.title && h.url && Number(h.points ?? 0) >= minPoints)
-    .map((h): Article => {
-      const points = Number(h.points ?? 0);
-      const comments = Number(h.num_comments ?? 0);
-      return {
-        id: `hn-${h.objectID}`,
-        title: String(h.title),
-        url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,
-        source: "HN",
-        author: h.author,
-        points,
-        comments,
-        publishedAt: h.created_at ?? new Date().toISOString(),
-        category,
-        tags: Array.isArray(h._tags) ? h._tags.filter((t: string) => t !== "story") : [],
-        commentsUrl: `https://news.ycombinator.com/item?id=${h.objectID}`,
-        heat: 0, // calculé plus bas
-      };
-    });
-}
-
 // ── Dev.to ──
-async function fetchDevto(category: CategoryId): Promise<Article[]> {
+export async function fetchDevto(category: CategoryId): Promise<Article[]> {
   const def = CATEGORY_MAP[category];
   const tag = def.devtoTags[0];
   const url = tag
@@ -113,8 +74,7 @@ function applyHeat(articles: Article[]): Article[] {
 
 // ── Agrégation : dédoublonnage + tri par mix fraîcheur / heat ──
 export async function getFeed(category: CategoryId): Promise<Article[]> {
-  const [hn, devto] = await Promise.all([fetchHN(category), fetchDevto(category)]);
-  const merged = [...hn, ...devto];
+  const merged = await fetchDevto(category);
 
   // dédoublonnage par URL normalisée
   const seen = new Set<string>();
@@ -154,7 +114,7 @@ function hashId(s: string): string {
 
 // Les flux RSS n'ont pas d'upvotes : on donne un "heat" fondé sur la fraîcheur
 // pour ne pas les faire systématiquement couler sous HN/PH dans le classement.
-function freshnessHeat(iso: string): number {
+export function freshnessHeat(iso: string): number {
   const ageH = (Date.now() - new Date(iso).getTime()) / 36e5;
   return Math.round(Math.min(92, Math.max(20, 92 - ageH * 2.2))); // ~90 si < 6 h
 }
@@ -243,6 +203,29 @@ export async function fetchRSS(feed: FeedSource): Promise<Article[]> {
     });
   }
   return out;
+}
+
+/**
+ * Flux RSS ajouté par un utilisateur : parse une fois pour récupérer le NOM
+ * auto (feed.title) + les articles récents. Renvoie null si l'URL n'est pas un
+ * flux valide. Pas d'IA ici (l'ajout doit être rapide) : le cron enrichira.
+ */
+export async function collectUserFeed(
+  url: string,
+): Promise<{ name: string; articles: Article[] } | null> {
+  let parsed;
+  try {
+    parsed = await rssParser().parseURL(url);
+  } catch {
+    return null;
+  }
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "");
+  } catch {}
+  const name = parsed.title?.trim() || host || "Source RSS";
+  const articles = await fetchRSS({ name, url, type: "rss", defaultCategory: "tech" });
+  return { name, articles };
 }
 
 /**
@@ -370,15 +353,91 @@ export async function fetchNewsAPI(): Promise<Article[]> {
   return out;
 }
 
+// ─────────────────────────────────────────────────────────────
+//  COLLECTE D'INGESTION — pilotée par la table `sources` (DB).
+//  Une passe LARGE par source (pas de slice/tri d'affichage : c'est le rôle
+//  du read). Un seul calcul de `heat` GLOBAL à la fin → échelle cohérente
+//  entre toutes les sources (corrige le heat relatif-au-batch d'avant).
+// ─────────────────────────────────────────────────────────────
+
+type SourceRow = {
+  id: string;
+  name: string;
+  type: string;
+  url: string | null;
+  category: CategoryId;
+  active: boolean;
+};
+
+// Catégories utilisées pour diversifier les recherches HN/Dev.to (Groq reclasse
+// ensuite). "all" = front_page / top.
+const COLLECT_CATS: CategoryId[] = ["all", "tech", "biz", "data", "ux"];
+
+async function getActiveSources(): Promise<SourceRow[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data } = await sb.from("sources").select("*").eq("active", true);
+  return (data ?? []) as SourceRow[];
+}
+
+// Heat unique 0..100 recalculé sur TOUT le corpus collecté.
+// Signal (votes/comm.) → log-normalisé globalement ; sources sans votes
+// (RSS/News) → repli sur la fraîcheur, sur la même échelle.
+// ponytail: heuristique globale ; si on veut du par-source, passer en percentile.
+function applyGlobalHeat(articles: Article[]): Article[] {
+  const logs = articles.map((a) => Math.log10(a.points + a.comments * 1.5 + 1));
+  const max = Math.max(...logs, 0.0001);
+  return articles.map((a, i) => {
+    const signal = a.points + a.comments * 1.5;
+    const heat = signal > 0 ? Math.round((logs[i] / max) * 100) : freshnessHeat(a.publishedAt);
+    return { ...a, heat };
+  });
+}
+
 /**
- * Collecte toutes les sources additionnelles (RSS + Product Hunt + NewsAPI opt.)
- * en parallèle. Chaque source échoue silencieusement (→ []) sans bloquer les autres.
+ * Collecte d'ingestion : lit les sources actives en DB, interroge chacune une
+ * fois (large), dédoublonne par URL, applique un heat global. Aucun tri/slice.
+ * Chaque source échoue silencieusement (→ []) sans bloquer les autres.
  */
-export async function collectExtraSources(): Promise<Article[]> {
-  const tasks: Promise<Article[]>[] = FEEDS.map((f) =>
-    f.type === "producthunt" ? fetchProductHunt() : fetchRSS(f),
-  );
-  tasks.push(fetchNewsAPI()); // no-op si NEWSAPI_KEY absent
-  const batches = await Promise.all(tasks);
-  return batches.flat();
+export async function collectAll(): Promise<Article[]> {
+  const sources = await getActiveSources();
+
+  const tasks: Promise<Article[]>[] = [];
+  for (const s of sources) {
+    switch (s.type) {
+      case "devto":
+        tasks.push(...COLLECT_CATS.map((c) => fetchDevto(c)));
+        break;
+      case "rss":
+        if (s.url)
+          tasks.push(
+            fetchRSS({
+              name: s.name,
+              url: s.url,
+              type: "rss",
+              defaultCategory: s.category as FeedSource["defaultCategory"],
+            }),
+          );
+        break;
+      case "producthunt":
+        tasks.push(fetchProductHunt());
+        break;
+      case "newsapi":
+        tasks.push(fetchNewsAPI());
+        break;
+    }
+  }
+
+  const all = (await Promise.all(tasks)).flat();
+
+  // dédoublonnage par URL normalisée
+  const seen = new Set<string>();
+  const unique = all.filter((a) => {
+    const key = a.url.replace(/\/$/, "").toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return applyGlobalHeat(unique);
 }

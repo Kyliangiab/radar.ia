@@ -6,4 +6,19 @@ major_version = 17
 
 [api]
 port = 54321
-schemas = ["public"]
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+# URL de base de l'app (redirections OAuth). En prod : mettre l'URL déployée.
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000"]
+
+# Connexion Google. client_id / secret via variables d'env (jamais en clair, jamais dashboard).
+# Redirect à autoriser côté Google : https://<project-ref>.supabase.co/auth/v1/callback
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"

@@ -15,7 +15,6 @@ export function AppShell({
   onLogout,
   onResults,
   onClearSearch,
-  updatedAt,
   children,
 }: {
   flux: FluxView;
@@ -27,7 +26,6 @@ export function AppShell({
   onLogout: () => void;
   onResults: (articles: Article[], query: string) => void;
   onClearSearch: () => void;
-  updatedAt: Date | null;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -67,7 +65,6 @@ export function AppShell({
         <Topbar
           onResults={onResults}
           onClearSearch={onClearSearch}
-          updatedAt={updatedAt}
           onBurger={() => setMobileOpen(true)}
         />
         <main className="flex-1 overflow-y-auto px-4 pb-11 pt-7 sm:px-9">{children}</main>

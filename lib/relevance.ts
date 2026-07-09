@@ -10,5 +10,10 @@ export function relevanceMeta(score: number): RelevanceMeta {
   if (score >= 90) return { label: "On Fire", color: "#E0503F", bg: "rgba(255,107,106,.18)" };
   if (score >= 80) return { label: "Haute", color: "#3F7A5E", bg: "rgba(78,141,110,.16)" };
   if (score >= 68) return { label: "Moyen", color: "#8A7A3F", bg: "rgba(138,122,63,.16)" };
-  return { label: "Faible", color: "rgba(38,0,0,.5)", bg: "rgba(38,0,0,.07)" };
+  // Faible : couleur theme-aware (la version codée en dur était illisible en dark).
+  return {
+    label: "Faible",
+    color: "hsl(var(--foreground) / 0.5)",
+    bg: "hsl(var(--foreground) / 0.07)",
+  };
 }

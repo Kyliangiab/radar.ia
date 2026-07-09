@@ -1,59 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { BRAND } from "@/config/brand";
-import { randomPersona } from "@/lib/personas";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { ThemeToggle } from "./ThemeToggle";
 import { Logo } from "./Logo";
 
-export interface AuthUser {
-  name: string;
-  email: string;
-  initials: string;
-  plan: string;
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "R";
-  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
-}
-
-export function AuthScreen({ onAuth }: { onAuth: (u: AuthUser) => void }) {
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+/** Écran de connexion — Google OAuth via Supabase Auth (vrai, pas de démo). */
+export function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function submit(via: "email" | "google") {
-    setError(null);
-    const finalEmail = via === "google" ? "kylian@gmail.com" : email.trim();
-    if (via === "email") {
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(finalEmail)) {
-        return setError("Entre une adresse e-mail valide.");
-      }
-      if (mode === "signup" && !name.trim()) {
-        return setError("Indique ton nom pour créer le compte.");
-      }
+  async function signIn() {
+    const sb = getSupabaseBrowser();
+    if (!sb) {
+      setError("Supabase n'est pas configuré (NEXT_PUBLIC_SUPABASE_URL / ANON_KEY).");
+      return;
     }
+    setError(null);
     setLoading(true);
-    // Auth "démo" (client) — à brancher sur Supabase Auth pour du réel.
-    const finalName =
-      via === "google"
-        ? "Kylian Giabiconi"
-        : mode === "signup"
-          ? name.trim()
-          : finalEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    setTimeout(() => {
-      onAuth({
-        name: finalName,
-        email: finalEmail,
-        initials: initialsOf(finalName),
-        plan: randomPersona(),
-      });
-    }, 500);
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    // En cas de succès, le navigateur part vers Google : pas de retour ici.
+    if (error) {
+      setError("La connexion a échoué. Réessaie.");
+      setLoading(false);
+    }
   }
 
   return (
@@ -74,81 +49,26 @@ export function AuthScreen({ onAuth }: { onAuth: (u: AuthUser) => void }) {
             <Logo size={56} />
           </span>
           <h1 className="text-[26px] font-bold tracking-[-0.02em] text-foreground">
-            {mode === "login" ? "Bon retour sur Radar" : "Créez votre compte Radar"}
+            Bon retour sur {BRAND.name}
           </h1>
           <p className="mt-1.5 text-[13.5px] text-foreground/55">
-            {mode === "login"
-              ? "Votre veille tech, résumée et priorisée par l'IA."
-              : "Quelques secondes, et le flux s'auto-alimente pour vous."}
+            Votre veille tech, résumée et priorisée par l'IA.
           </p>
         </div>
 
         {/* Carte */}
         <div className="rounded-[20px] border border-border bg-card p-6 shadow-[0_16px_40px_-20px_rgba(0,0,0,.25)]">
           <button
-            onClick={() => submit("google")}
+            onClick={signIn}
             disabled={loading}
             className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-card px-4 py-3 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
           >
-            <GoogleIcon /> Continuer avec Google
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <GoogleIcon />}
+            Continuer avec Google
           </button>
 
-          <div className="my-4 flex items-center gap-3 text-[11px] font-medium uppercase tracking-wider text-foreground/35">
-            <span className="h-px flex-1 bg-border" /> ou <span className="h-px flex-1 bg-border" />
-          </div>
-
-          <div className="space-y-2.5">
-            {mode === "signup" && (
-              <Field
-                label="Nom"
-                value={name}
-                onChange={setName}
-                placeholder="Kylian Giabiconi"
-                type="text"
-                onEnter={() => submit("email")}
-              />
-            )}
-            <Field
-              label="Adresse e-mail"
-              value={email}
-              onChange={setEmail}
-              placeholder="vous@exemple.com"
-              type="email"
-              onEnter={() => submit("email")}
-            />
-          </div>
-
-          {error && <p className="mt-2.5 text-[12px] text-destructive">{error}</p>}
-
-          <button
-            onClick={() => submit("email")}
-            disabled={loading}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-[14px] font-bold text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
-          >
-            {loading ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <>
-                {mode === "login" ? "Se connecter" : "Créer mon compte"}
-                <ArrowRight size={16} />
-              </>
-            )}
-          </button>
+          {error && <p className="mt-3 text-[12px] text-destructive">{error}</p>}
         </div>
-
-        {/* Bascule mode */}
-        <p className="mt-5 text-center text-[13px] text-foreground/55">
-          {mode === "login" ? "Pas encore de compte ?" : "Déjà un compte ?"}{" "}
-          <button
-            onClick={() => {
-              setMode(mode === "login" ? "signup" : "login");
-              setError(null);
-            }}
-            className="font-semibold text-primary hover:underline"
-          >
-            {mode === "login" ? "Créer un compte" : "Se connecter"}
-          </button>
-        </p>
 
         <p className="mx-auto mt-6 max-w-[320px] text-center text-[11px] leading-relaxed text-foreground/40">
           En continuant, vous acceptez les conditions d'utilisation de {BRAND.name} et notre
@@ -156,36 +76,6 @@ export function AuthScreen({ onAuth }: { onAuth: (u: AuthUser) => void }) {
         </p>
       </div>
     </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type,
-  onEnter,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  type: string;
-  onEnter: () => void;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-[12px] font-semibold text-foreground/70">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && onEnter()}
-        placeholder={placeholder}
-        className="w-full rounded-xl border border-border bg-background px-3.5 py-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-foreground/35 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
-      />
-    </label>
   );
 }
 

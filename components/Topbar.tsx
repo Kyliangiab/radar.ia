@@ -8,12 +8,10 @@ import { ThemeToggle } from "./ThemeToggle";
 export function Topbar({
   onResults,
   onClearSearch,
-  updatedAt,
   onBurger,
 }: {
   onResults: (articles: Article[], query: string) => void;
   onClearSearch: () => void;
-  updatedAt: Date | null;
   onBurger: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -114,18 +112,9 @@ export function Topbar({
           )}
         </div>
 
-        {/* Thème + Synchro auto */}
+        {/* Thème */}
         <div className="ml-auto flex items-center gap-3">
           <ThemeToggle />
-          <div className="hidden items-center gap-2 md:flex">
-            <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-[#4E8D6E]" />
-            <span className="text-[11.5px] text-foreground/50">
-              Synchro auto
-              {updatedAt && (
-                <> · {updatedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</>
-              )}
-            </span>
-          </div>
         </div>
       </div>
       {note && (

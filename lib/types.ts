@@ -1,14 +1,9 @@
 export type CategoryId = "all" | "tech" | "biz" | "data" | "ux";
 
-// Vues de l'app (design 2a) + densité du feed.
-export type FluxView =
-  | "pourtoi"
-  | "brief"
-  | "recents"
-  | "enregistres"
-  | "tendances"
-  | "sources";
-export type Density = "confort" | "compact";
+// Vues de l'app : le fil (défaut), le brief du jour, les enregistrés, les sources.
+export type FluxView = "fil" | "brief" | "enregistres" | "sources";
+// Tri du fil : plus récents / plus pertinents (heat).
+export type FeedSort = "recent" | "hot";
 
 // Étiquette de source affichée. Sources historiques : "HN" | "Dev.to".
 // Élargi à string pour accueillir les flux RSS / API additionnels

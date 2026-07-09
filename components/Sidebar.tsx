@@ -1,17 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Sparkles,
-  Newspaper,
-  Clock,
-  Bookmark,
-  TrendingUp,
-  Rss,
-  Check,
-  LogOut,
-  type LucideIcon,
-} from "lucide-react";
+import { Sparkles, Newspaper, Bookmark, Rss, Check, LogOut, type LucideIcon } from "lucide-react";
 import { BRAND } from "@/config/brand";
 import { CATEGORIES, RAMP } from "@/lib/categories";
 import type { CategoryId, FluxView } from "@/lib/types";
@@ -21,16 +11,13 @@ import { Logo } from "./Logo";
 export interface AccountUser {
   name: string;
   initials: string;
-  plan: string;
   email?: string;
 }
 
 const FLUX: { id: FluxView; label: string; icon: LucideIcon }[] = [
-  { id: "pourtoi", label: "Pour toi", icon: Sparkles },
-  { id: "brief", label: "Brief du jour", icon: Newspaper },
-  { id: "recents", label: "Récents", icon: Clock },
+  { id: "fil", label: "Le fil", icon: Newspaper },
+  { id: "brief", label: "Brief du jour", icon: Sparkles },
   { id: "enregistres", label: "Enregistrés", icon: Bookmark },
-  { id: "tendances", label: "Tendances", icon: TrendingUp },
 ];
 
 export function Sidebar({
@@ -155,7 +142,9 @@ export function Sidebar({
           </span>
           <div className="min-w-0 flex-1 leading-[1.25]">
             <div className="truncate text-[12.5px] font-semibold text-white">{user.name}</div>
-            <div className="truncate text-[10.5px] text-white/70">{user.plan}</div>
+            {user.email && (
+              <div className="truncate text-[10.5px] text-white/70">{user.email}</div>
+            )}
           </div>
         </button>
       </div>

@@ -26,39 +26,26 @@ export async function POST(request: Request) {
   }
 
   let query = "";
-  let mode: "semantic" | "keyword" = "semantic";
   let category: CategoryId = "all";
   try {
     const body = await request.json();
     query = String(body.query ?? "").trim();
-    if (body.mode === "keyword") mode = "keyword";
     if (VALID.includes(body.category)) category = body.category;
   } catch {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
   if (!query) return NextResponse.json({ articles: [] }, { status: 200 });
 
+  // Recherche sémantique : embedding de la requête (HF) → match_articles (cosinus).
   try {
-    if (mode === "semantic") {
-      const embedding = await embedQuery(query);
-      const { data, error } = await supabase.rpc("match_articles", {
-        query_embedding: embedding,
-        match_count: 24,
-        filter_category: category === "all" ? null : category,
-      });
-      if (error) throw error;
-      return NextResponse.json({ mode, count: data?.length ?? 0, articles: (data ?? []).map(mapRow) });
-    } else {
-      let q = supabase
-        .from("articles")
-        .select("*")
-        .textSearch("fts", query, { type: "websearch", config: "simple" })
-        .limit(24);
-      if (category !== "all") q = q.eq("category", category);
-      const { data, error } = await q;
-      if (error) throw error;
-      return NextResponse.json({ mode, count: data?.length ?? 0, articles: (data ?? []).map(mapRow) });
-    }
+    const embedding = await embedQuery(query);
+    const { data, error } = await supabase.rpc("match_articles", {
+      query_embedding: embedding,
+      match_count: 24,
+      filter_category: category === "all" ? null : category,
+    });
+    if (error) throw error;
+    return NextResponse.json({ count: data?.length ?? 0, articles: (data ?? []).map(mapRow) });
   } catch (e: any) {
     return NextResponse.json({ error: "search_failed", detail: e?.message ?? null, articles: [] }, { status: 200 });
   }

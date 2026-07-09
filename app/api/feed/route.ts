@@ -30,35 +30,29 @@ function mapRow(r: any): Article {
   };
 }
 
-// Re-classement fraîcheur × signal (comme le pipeline)
-function rank(articles: Article[]): Article[] {
-  const now = Date.now();
-  return [...articles]
-    .map((a) => {
-      const ageH = (now - new Date(a.publishedAt).getTime()) / 36e5;
-      const freshness = Math.max(0, 100 - ageH * 2.2);
-      return { a, r: a.heat * 0.6 + freshness * 0.4 };
-    })
-    .sort((x, y) => y.r - x.r)
-    .map((s) => s.a)
-    .slice(0, 40);
-}
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const raw = (searchParams.get("category") ?? "all") as CategoryId;
   const category = VALID.includes(raw) ? raw : "all";
+  // uid (session) → on ajoute les articles des sources perso du user au corpus
+  // global. ponytail: contenu RSS public, filtre best-effort (pas de secret ici).
+  const uid = searchParams.get("uid");
+  const validUid = uid && /^[0-9a-f-]{36}$/i.test(uid) ? uid : null;
 
   const supabase = getSupabase();
 
   // Source de vérité : la base (restitution du pipeline)
   if (supabase) {
     try {
-      let q = supabase.from("articles").select("*").order("published_at", { ascending: false }).limit(80);
+      // Tri/filtre côté client (toggle Récents/Pertinence) → on renvoie large,
+      // ordonné par date. Pas de re-rank ni de slice ici.
+      let q = supabase.from("articles").select("*").order("published_at", { ascending: false }).limit(300);
+      // corpus global (user_id null) + sources perso du user
+      q = validUid ? q.or(`user_id.is.null,user_id.eq.${validUid}`) : q.is("user_id", null);
       if (category !== "all") q = q.eq("category", category);
       const { data, error } = await q;
       if (!error && data && data.length > 0) {
-        return NextResponse.json({ category, source: "db", count: data.length, articles: rank(data.map(mapRow)) });
+        return NextResponse.json({ category, source: "db", count: data.length, articles: data.map(mapRow) });
       }
     } catch {
       /* bascule en live ci-dessous */

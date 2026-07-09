@@ -1,33 +1,50 @@
 /**
  * Pipeline d'ingestion — LA commande qui auto-alimente la plateforme.
  *   npm run ingest
- * Étapes : collecte (HN + Dev.to par domaine) → dédoublonnage → enrichissement IA
- * (classification + résumé) → embedding local → upsert dans Supabase.
+ * Étapes : collecte (sources actives en DB, large) → dédoublonnage → enrichissement
+ * IA concurrent (domaine + résumé + pourquoi) → embedding local (e5-base) → upsert
+ * (articles + article_embeddings).
  *
- * Sans SUPABASE_URL/KEY : le script tourne "à blanc" (dry-run) et log ce qu'il
- * insérerait — utile pour tester la chaîne sans base.
+ * Nécessite Supabase configuré (on ingère DANS la base). Sans clé Groq :
+ * la classification retombe sur la catégorie d'origine de la source.
  */
-import "dotenv/config";
-import { getFeed, collectExtraSources } from "../lib/sources";
+import { config } from "dotenv";
+config({ path: ".env.local" }); // même fichier que l'app Next
+config(); // repli sur .env si présent (n'écrase pas)
+import { collectAll } from "../lib/sources";
 import { enrich } from "../lib/enrich";
 import { embedDocument } from "../lib/embeddings";
 import { getSupabase } from "../lib/supabase";
-import type { Article, CategoryId } from "../lib/types";
+import type { Article } from "../lib/types";
 
-const CATEGORIES: CategoryId[] = ["all", "tech", "biz", "data", "ux"];
+const ENRICH_CONCURRENCY = 5; // appels Groq en parallèle (réseau)
 
-async function collect(): Promise<Article[]> {
-  // HN + Dev.to par domaine, ET les sources additionnelles (RSS + Product Hunt +
-  // NewsAPI opt.) — ces dernières ne tournent QUE dans le pipeline, jamais en
-  // serverless. L'IA (Groq) reclassera chaque article dans le bon domaine.
-  const [feedBatches, extra] = await Promise.all([
-    Promise.all(CATEGORIES.map((c) => getFeed(c))),
-    collectExtraSources(),
-  ]);
-  const all = [...feedBatches.flat(), ...extra];
+// map concurrent borné, sans dépendance.
+async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let i = 0;
+  async function worker() {
+    while (i < items.length) {
+      const idx = i++;
+      out[idx] = await fn(items[idx]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
 
-  // Compte par source (visibilité de la collecte, utile en dry-run)
-  const bySource = all.reduce<Record<string, number>>((acc, a) => {
+async function main() {
+  const supabase = getSupabase();
+  if (!supabase) {
+    console.error("✗ Supabase non configuré (SUPABASE_URL / SERVICE_ROLE_KEY). Rien à ingérer.");
+    process.exit(1);
+  }
+
+  console.log("→ Collecte des sources actives…");
+  const articles = await collectAll();
+
+  // Compte par source (visibilité)
+  const bySource = articles.reduce<Record<string, number>>((acc, a) => {
     acc[a.source] = (acc[a.source] ?? 0) + 1;
     return acc;
   }, {});
@@ -38,73 +55,71 @@ async function collect(): Promise<Article[]> {
         .map(([s, n]) => `${s}=${n}`)
         .join("  "),
   );
-
-  const seen = new Set<string>();
-  const unique: Article[] = [];
-  for (const a of all) {
-    const key = a.url.replace(/\/$/, "").toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push(a);
-  }
-  return unique;
-}
-
-async function main() {
-  const supabase = getSupabase();
-  const dryRun = !supabase;
-  console.log(dryRun ? "⚠️  Mode dry-run (pas de Supabase configuré)\n" : "→ Ingestion Supabase\n");
-
-  const articles = await collect();
   console.log(`Collectés : ${articles.length} articles uniques`);
 
-  // On n'enrichit/embed que les nouveaux (économie de tokens + temps)
-  let existing = new Set<string>();
-  if (supabase) {
-    const urls = articles.map((a) => a.url);
-    const { data } = await supabase.from("articles").select("url").in("url", urls);
-    existing = new Set((data ?? []).map((r: { url: string }) => r.url));
-  }
+  // On n'enrichit/embed que les nouveaux (économie tokens + temps)
+  const urls = articles.map((a) => a.url);
+  const { data: existingRows } = await supabase.from("articles").select("url").in("url", urls);
+  const existing = new Set((existingRows ?? []).map((r: { url: string }) => r.url));
   const fresh = articles.filter((a) => !existing.has(a.url));
   console.log(`Nouveaux à traiter : ${fresh.length}\n`);
 
-  let done = 0;
-  for (const a of fresh) {
+  // 1) Enrich concurrent (réseau) — phase longue (bridée par le tokens/min Groq),
+  //    avec progression pour ne pas paraître planté.
+  console.log(`Enrichissement IA (classe + résume) de ${fresh.length} articles…`);
+  let enriched = 0;
+  const enrichments = await mapLimit(fresh, ENRICH_CONCURRENCY, async (a) => {
     const e = await enrich(a);
-    const text = [a.title, a.snippet, e.summary].filter(Boolean).join(". ");
-    const embedding = await embedDocument(text);
-
-    const row = {
-      id: a.id,
-      source: a.source,
-      title: a.title,
-      url: a.url,
-      author: a.author ?? null,
-      points: a.points,
-      comments: a.comments,
-      published_at: a.publishedAt,
-      category: e.category,
-      tags: a.tags,
-      snippet: a.snippet ?? null,
-      image: a.image ?? null,
-      heat: a.heat,
-      summary: e.summary,
-      why_it_matters: e.whyItMatters,
-      embedding,
-      fetched_at: new Date().toISOString(),
-    };
-
-    if (dryRun) {
-      console.log(`  [dry] ${e.category.padEnd(4)} ${a.title.slice(0, 62)}`);
-    } else {
-      const { error } = await supabase!.from("articles").upsert(row, { onConflict: "id" });
-      if (error) console.error(`  ✗ ${a.title.slice(0, 50)} — ${error.message}`);
-      else console.log(`  ✓ ${e.category.padEnd(4)} ${a.title.slice(0, 62)}`);
+    if (++enriched % 20 === 0 || enriched === fresh.length) {
+      console.log(`  … enrichis ${enriched}/${fresh.length}`);
     }
-    done++;
+    return e;
+  });
+
+  // 2) Embedding LOCAL e5-base — SÉQUENTIEL obligatoire : le runtime onnx n'est
+  //    pas réentrant, des appels concurrents le deadlockent. Upsert au fil de l'eau.
+  console.log(`Embedding local + stockage…`);
+  let done = 0;
+  let failed = 0;
+  for (let k = 0; k < fresh.length; k++) {
+    const a = fresh[k];
+    const e = enrichments[k];
+    try {
+      const embedding = await embedDocument([a.title, a.snippet].filter(Boolean).join(". "));
+      const row = {
+        id: a.id,
+        source: a.source,
+        title: a.title,
+        url: a.url,
+        author: a.author ?? null,
+        points: a.points,
+        comments: a.comments,
+        published_at: a.publishedAt,
+        category: e.category,
+        tags: a.tags,
+        snippet: a.snippet ?? null,
+        image: a.image ?? null,
+        heat: a.heat,
+        summary: e.summary,
+        why_it_matters: e.whyItMatters,
+        fetched_at: new Date().toISOString(),
+      };
+      const { error: aErr } = await supabase.from("articles").upsert(row, { onConflict: "id" });
+      if (aErr) throw aErr;
+      const { error: eErr } = await supabase
+        .from("article_embeddings")
+        .upsert({ article_id: a.id, embedding }, { onConflict: "article_id" });
+      if (eErr) throw eErr;
+      done++;
+    } catch {
+      failed++;
+    }
+    if ((done + failed) % 10 === 0 || done + failed === fresh.length) {
+      console.log(`  … stockés ${done}/${fresh.length}${failed ? ` (${failed} échecs)` : ""}`);
+    }
   }
 
-  console.log(`\nTerminé : ${done} articles traités${dryRun ? " (dry-run)" : " et stockés"}.`);
+  console.log(`\nTerminé : ${done} articles stockés${failed ? `, ${failed} échecs` : ""}.`);
 }
 
 main().catch((e) => {

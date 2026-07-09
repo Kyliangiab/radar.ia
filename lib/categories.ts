@@ -5,8 +5,6 @@ export interface CategoryDef {
   label: string;
   color: string; // hex — pastille (palette Marple)
   gradient?: boolean; // "Tout" = pastille dégradée
-  hnQuery?: string;
-  hnFrontPage?: boolean;
   devtoTags: string[];
 }
 
@@ -22,35 +20,30 @@ export const CATEGORIES: CategoryDef[] = [
     label: "Tout",
     color: "#FF6B6A",
     gradient: true,
-    hnFrontPage: true,
     devtoTags: [],
   },
   {
     id: "tech",
     label: "Tech",
     color: "#C8663A", // terracotta
-    hnQuery: "technology",
     devtoTags: ["technology", "hardware"],
   },
   {
     id: "biz",
     label: "Business",
     color: "#4E8D6E", // vert
-    hnQuery: "startup",
     devtoTags: ["startup", "career"],
   },
   {
     id: "data",
     label: "Data & IA",
     color: "#5566C7", // indigo
-    hnQuery: "AI",
     devtoTags: ["ai", "machinelearning"],
   },
   {
     id: "ux",
     label: "UX & Design",
     color: "#B4568F", // magenta
-    hnQuery: "design",
     devtoTags: ["design", "ux"],
   },
 ];
