@@ -1,36 +1,25 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Menu, RefreshCw } from "lucide-react";
-import type { Article, CategoryId } from "@/lib/types";
-import { CATEGORIES, RAMP } from "@/lib/categories";
-import { cn } from "@/lib/utils";
-import { SearchBar } from "./SearchBar";
-
-type Mode = "semantic" | "keyword";
+import { useEffect, useRef, useState } from "react";
+import { Search, Menu, Loader2 } from "lucide-react";
+import type { Article } from "@/lib/types";
 
 export function Topbar({
-  category,
-  onCategory,
   onResults,
-  onClear,
+  onClearSearch,
   updatedAt,
-  loading,
-  onRefresh,
   onBurger,
 }: {
-  category: CategoryId;
-  onCategory: (c: CategoryId) => void;
-  onResults: (articles: Article[], query: string, mode: Mode) => void;
-  onClear: () => void;
+  onResults: (articles: Article[], query: string) => void;
+  onClearSearch: () => void;
   updatedAt: Date | null;
-  loading: boolean;
-  onRefresh: () => void;
   onBurger: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
 
-  // ⌘K / Ctrl+K + event "radar:focus-search" (déclenché depuis la sidebar)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -38,10 +27,7 @@ export function Topbar({
         inputRef.current?.focus();
       }
     }
-    function onFocusEvt() {
-      inputRef.current?.focus();
-      inputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+    const onFocusEvt = () => inputRef.current?.focus();
     window.addEventListener("keydown", onKey);
     window.addEventListener("radar:focus-search", onFocusEvt as EventListener);
     return () => {
@@ -50,77 +36,97 @@ export function Topbar({
     };
   }, []);
 
+  async function run() {
+    const query = q.trim();
+    if (!query) return;
+    setLoading(true);
+    setNote(null);
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, mode: "semantic", category: "all" }),
+      });
+      const data = await res.json();
+      if (data?.error === "no_db") {
+        setNote("Configure Supabase pour activer la recherche.");
+        return;
+      }
+      if (data?.error) {
+        setNote("La recherche a échoué. Réessaie.");
+        return;
+      }
+      onResults(data.articles ?? [], query);
+    } catch {
+      setNote("La recherche a échoué. Réessaie.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function clear() {
+    setQ("");
+    setNote(null);
+    onClearSearch();
+  }
+
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur-md">
-      <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
-        {/* Burger mobile */}
+    <header className="sticky top-0 z-20 flex-none border-b border-border bg-background/90 backdrop-blur-md">
+      <div className="flex items-center gap-4 px-4 py-[13px] sm:px-6">
         <button
           onClick={onBurger}
-          className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground lg:hidden"
+          className="grid h-9 w-9 place-items-center rounded-lg text-foreground/50 hover:text-foreground lg:hidden"
           aria-label="Ouvrir le menu"
         >
           <Menu size={18} />
         </button>
 
-        {/* Recherche (Entrée pour lancer, ⌘K pour focus) */}
-        <div className="min-w-0 flex-1">
-          <SearchBar
-            category={category}
-            onResults={onResults}
-            onClear={onClear}
-            inputRef={inputRef}
-            showKbdHint
+        {/* Recherche unique */}
+        <div className="flex w-full max-w-[520px] items-center gap-[10px] rounded-xl border border-border bg-card px-[14px] py-[11px]">
+          {loading ? (
+            <Loader2 size={15} className="shrink-0 animate-spin text-primary" />
+          ) : (
+            <Search size={15} className="shrink-0 text-foreground/40" />
+          )}
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") run();
+              if (e.key === "Escape") clear();
+            }}
+            placeholder="Rechercher un sujet, une techno, une source…"
+            className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-foreground/40"
           />
+          {q ? (
+            <button
+              onClick={clear}
+              className="shrink-0 text-[11px] font-semibold text-foreground/40 hover:text-foreground"
+            >
+              Effacer
+            </button>
+          ) : (
+            <kbd className="shrink-0 rounded-[5px] border border-border px-[5px] py-0.5 font-mono text-[10px] font-semibold text-foreground/35">
+              ⌘K
+            </kbd>
+          )}
         </div>
 
-        {/* LIVE + rafraîchir */}
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="hidden items-center gap-2 font-mono text-[11px] text-muted-foreground md:inline-flex">
-            <span className="h-1.5 w-1.5 animate-pulseDot rounded-full bg-primary" />
-            LIVE
+        {/* Synchro auto */}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-[#4E8D6E]" />
+          <span className="hidden text-[11.5px] text-foreground/50 sm:inline">
+            Synchro auto
             {updatedAt && (
-              <span className="text-muted-foreground/70">
-                · maj{" "}
-                {updatedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-              </span>
+              <> · {updatedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</>
             )}
           </span>
-          <button
-            onClick={onRefresh}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-            aria-label="Rafraîchir le flux"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            <span className="hidden sm:inline">Rafraîchir</span>
-          </button>
         </div>
       </div>
-
-      {/* Filtres domaines (liés à la recherche/flux) */}
-      <div className="flex items-center gap-2 overflow-x-auto px-4 pb-2.5 sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {CATEGORIES.map((c) => {
-          const on = c.id === category;
-          return (
-            <button
-              key={c.id}
-              onClick={() => onCategory(c.id)}
-              aria-pressed={on}
-              className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors",
-                on
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
-              )}
-            >
-              <span
-                className="h-2 w-2 rounded-full ring-1 ring-black/5"
-                style={{ background: c.gradient ? RAMP : c.color }}
-              />
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
+      {note && (
+        <p className="px-4 pb-2 text-[11px] text-[#E0503F] sm:px-6">{note}</p>
+      )}
     </header>
   );
 }

@@ -6,11 +6,11 @@ import type { CategoryId } from "@/lib/types";
 // Dégradés de placeholder par domaine (palette Marple) — pour garder un feed
 // "image-rich" façon daily.dev même quand la source n'a pas d'illustration.
 const GRADIENT: Record<CategoryId, string> = {
-  all: "linear-gradient(135deg,#E35C2B 0%,#FFB200 100%)",
-  tech: "linear-gradient(135deg,#E35C2B 0%,#8A2E12 100%)",
-  biz: "linear-gradient(135deg,#FFB200 0%,#E35C2B 100%)",
-  data: "linear-gradient(135deg,#8A2E12 0%,#3a1206 100%)",
-  ux: "linear-gradient(135deg,#C98A3C 0%,#8a5a24 100%)",
+  all: "linear-gradient(135deg,#FF6B6A 0%,#C8663A 100%)",
+  tech: "linear-gradient(135deg,#C8663A 0%,#8a4225 100%)",
+  biz: "linear-gradient(135deg,#4E8D6E 0%,#356048 100%)",
+  data: "linear-gradient(135deg,#5566C7 0%,#3a458a 100%)",
+  ux: "linear-gradient(135deg,#B4568F 0%,#7c3a61 100%)",
 };
 
 export function CoverImage({
@@ -26,7 +26,7 @@ export function CoverImage({
   const showImg = src && !broken;
 
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border bg-muted">
+    <div className="relative h-full min-h-[120px] w-full overflow-hidden bg-muted">
       {showImg ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img

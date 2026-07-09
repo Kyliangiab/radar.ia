@@ -13,14 +13,14 @@ export interface CategoryDef {
 /**
  * Les 4 domaines imposés par le brief :
  * Tech · Business de la tech · Data & IA · UX & solutions numériques.
- * Couleurs dérivées de la palette (FAF3E3 · FFB200 · E35C2B · 180700) —
- * 4 tons chauds distincts, lisibles sur fond cream.
+ * Couleurs = thèmes du design 2a (pastilles, tags, numéros) :
+ * Tech #C8663A · Business #4E8D6E · Data & IA #5566C7 · UX & Design #B4568F.
  */
 export const CATEGORIES: CategoryDef[] = [
   {
     id: "all",
     label: "Tout",
-    color: "#E35C2B",
+    color: "#FF6B6A",
     gradient: true,
     hnFrontPage: true,
     devtoTags: [],
@@ -28,28 +28,28 @@ export const CATEGORIES: CategoryDef[] = [
   {
     id: "tech",
     label: "Tech",
-    color: "#E35C2B", // terracotta
+    color: "#C8663A", // terracotta
     hnQuery: "technology",
     devtoTags: ["technology", "hardware"],
   },
   {
     id: "biz",
     label: "Business",
-    color: "#FFB200", // ambre
+    color: "#4E8D6E", // vert
     hnQuery: "startup",
     devtoTags: ["startup", "career"],
   },
   {
     id: "data",
     label: "Data & IA",
-    color: "#8A2E12", // cocoa-red profond
+    color: "#5566C7", // indigo
     hnQuery: "AI",
     devtoTags: ["ai", "machinelearning"],
   },
   {
     id: "ux",
     label: "UX & Design",
-    color: "#C98A3C", // ochre chaud
+    color: "#B4568F", // magenta
     hnQuery: "design",
     devtoTags: ["design", "ux"],
   },
@@ -68,4 +68,4 @@ export function categoryColor(id: CategoryId): string {
 }
 
 // Dégradé signature (barre briefing, pastille "Tout")
-export const RAMP = "linear-gradient(90deg,#8A2E12,#E35C2B,#FFB200,#FAF3E3)";
+export const RAMP = "linear-gradient(90deg,#C8663A,#4E8D6E,#5566C7,#B4568F)";

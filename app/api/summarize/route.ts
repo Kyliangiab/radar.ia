@@ -10,10 +10,12 @@ Tu n'as que le titre (et parfois une courte description), pas le texte intégral
 appuie-toi dessus sans inventer de faits précis. Reste général si l'info manque.
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, au format :
 {
-  "summary": "2 phrases max, ce dont ça parle",
-  "whyItMatters": "1 phrase : pourquoi c'est pertinent pour une veille tech/design/IA"
+  "summary": "3-4 phrases : ce dont ça parle et le contexte",
+  "whyItMatters": "1 phrase : pourquoi c'est pertinent pour une veille tech/design/IA",
+  "points": ["point clé concret", "autre point clé", "3e point clé"],
+  "pullquote": "une phrase percutante à ressortir en réunion (sans guillemets)"
 }
-Ton clair, pas d'emoji, pas de superlatifs.`;
+Donne exactement 3 points courts. Ton clair, pas d'emoji, pas de superlatifs.`;
 
 export async function POST(request: Request) {
   if (!hasGroq()) {
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
       system: SYSTEM,
       user: `Source : ${source}\nTitre : ${title}\nDescription : ${snippet || "(aucune)"}\n\nGénère le résumé JSON.`,
       model: GROQ_MODEL_FAST,
-      maxTokens: 512,
+      maxTokens: 768,
     });
     if (!parsed || !parsed.summary) {
       return NextResponse.json({ error: "ai_failed" }, { status: 200 });

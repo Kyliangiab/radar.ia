@@ -1,243 +1,184 @@
 "use client";
 
 import {
-  PanelLeftClose,
-  PanelLeftOpen,
-  Search,
   Sparkles,
+  Newspaper,
   Clock,
-  Flame,
-  Compass,
-  Layers,
-  ChevronsUpDown,
+  Bookmark,
+  TrendingUp,
+  Rss,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 import { BRAND, USER } from "@/config/brand";
 import { CATEGORIES } from "@/lib/categories";
-import type { CategoryId } from "@/lib/types";
+import type { CategoryId, FluxView } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Logo } from "./Logo";
 
-export type FeedSort = "foryou" | "recent" | "trending";
-
-const FLUX: { id: FeedSort; label: string; icon: LucideIcon }[] = [
-  { id: "foryou", label: "Pour toi", icon: Sparkles },
-  { id: "recent", label: "Récents", icon: Clock },
-  { id: "trending", label: "Tendances", icon: Flame },
+const FLUX: { id: FluxView; label: string; icon: LucideIcon }[] = [
+  { id: "pourtoi", label: "Pour toi", icon: Sparkles },
+  { id: "brief", label: "Brief du jour", icon: Newspaper },
+  { id: "recents", label: "Récents", icon: Clock },
+  { id: "enregistres", label: "Enregistrés", icon: Bookmark },
+  { id: "tendances", label: "Tendances", icon: TrendingUp },
 ];
 
-function focusSearch() {
-  window.dispatchEvent(new CustomEvent("radar:focus-search"));
-}
-function scrollTo(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
 export function Sidebar({
-  category,
-  onCategory,
-  sort,
-  onSort,
-  collapsed = false,
-  onToggle,
+  flux,
+  onFlux,
+  domain,
+  onDomain,
+  savedCount,
   onNavigate,
 }: {
-  category: CategoryId;
-  onCategory: (c: CategoryId) => void;
-  sort: FeedSort;
-  onSort: (s: FeedSort) => void;
-  collapsed?: boolean;
-  onToggle?: () => void;
-  /** appelé après un clic (pour refermer le drawer mobile) */
+  flux: FluxView;
+  onFlux: (v: FluxView) => void;
+  domain: CategoryId;
+  onDomain: (c: CategoryId) => void;
+  savedCount: number;
   onNavigate?: () => void;
 }) {
   const domains = CATEGORIES.filter((c) => c.id !== "all");
 
   return (
-    <div className="flex h-full flex-col gap-4 p-3 text-sidebar-foreground">
-      {/* En-tête : logo + nom + toggle */}
-      <div className={cn("flex items-center gap-2", collapsed ? "flex-col" : "justify-between")}>
-        {!collapsed && (
-          <div className="flex min-w-0 items-center gap-2.5 pl-1">
-            <Logo />
-            <div className="min-w-0">
-              <p className="font-display text-base font-bold leading-none tracking-tight">
-                {BRAND.name}
-              </p>
-              <p className="mt-1 truncate font-mono text-[10px] uppercase tracking-[0.14em] text-sidebar-muted">
-                {BRAND.baseline}
-              </p>
-            </div>
+    <div className="flex h-full flex-col bg-sidebar px-[15px] py-[22px] text-white">
+      {/* Logo */}
+      <div className="flex items-center gap-[11px] px-2 pb-6 pt-1">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-foreground">
+          <span className="h-[13px] w-[13px] rounded-full border-[3px] border-sidebar" />
+        </span>
+        <div className="min-w-0">
+          <div className="text-lg font-bold leading-none">{BRAND.name}</div>
+          <div className="mt-1 truncate text-[10.5px] tracking-[0.02em] text-white/70">
+            veille tech · UI &amp; IA
           </div>
-        )}
-        {collapsed && <Logo />}
-        {onToggle && (
-          <button
-            onClick={onToggle}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sidebar-foreground/80 transition-colors hover:bg-white/15 hover:text-sidebar-foreground"
-            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
-            title={collapsed ? "Déplier" : "Replier"}
-          >
-            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          </button>
-        )}
+        </div>
       </div>
 
-      {/* Recherche (focus la barre du topbar) */}
-      <RailItem
-        collapsed={collapsed}
-        icon={Search}
-        label="Rechercher"
-        onClick={() => {
-          focusSearch();
-          onNavigate?.();
-        }}
-      />
-
-      {/* Flux */}
-      <Section title="Flux" collapsed={collapsed}>
-        {FLUX.map((f) => (
-          <RailItem
-            key={f.id}
-            collapsed={collapsed}
-            icon={f.icon}
-            label={f.label}
-            active={f.id === sort && category === "all"}
-            onClick={() => {
-              onSort(f.id);
-              onCategory("all");
-              onNavigate?.();
-            }}
-          />
-        ))}
-      </Section>
+      {/* Mon flux */}
+      <SectionLabel>Mon flux</SectionLabel>
+      {FLUX.map((f) => (
+        <NavItem
+          key={f.id}
+          icon={f.icon}
+          label={f.label}
+          active={flux === f.id}
+          badge={f.id === "enregistres" && savedCount > 0 ? String(savedCount) : undefined}
+          onClick={() => {
+            onFlux(f.id);
+            onNavigate?.();
+          }}
+        />
+      ))}
 
       {/* Domaines */}
-      <Section title="Domaines" collapsed={collapsed}>
-        {domains.map((c) => (
-          <RailItem
-            key={c.id}
-            collapsed={collapsed}
-            dot={c.color}
-            label={c.label}
-            active={c.id === category}
+      <SectionLabel className="mt-5">Domaines</SectionLabel>
+      {domains.map((d) => {
+        const active = domain === d.id;
+        return (
+          <button
+            key={d.id}
             onClick={() => {
-              onCategory(c.id);
+              onDomain(d.id);
               onNavigate?.();
             }}
-          />
-        ))}
-      </Section>
+            className={cn(
+              "mb-0.5 flex w-full items-center gap-[10px] rounded-[10px] px-3 py-[9px] text-left text-[13px] transition-colors",
+              active
+                ? "bg-background font-semibold text-foreground shadow-[0_1px_2px_rgba(38,0,0,.12)]"
+                : "font-medium text-white/85 hover:bg-white/10",
+            )}
+          >
+            <span
+              className="h-2 w-2 shrink-0 rounded-full ring-1 ring-black/5"
+              style={{ background: d.color }}
+            />
+            <span className="truncate">{d.label}</span>
+            {active && <Check size={13} className="ml-auto shrink-0" style={{ color: d.color }} />}
+          </button>
+        );
+      })}
 
-      {/* Explorer */}
-      <Section title="Explorer" collapsed={collapsed}>
-        <RailItem
-          collapsed={collapsed}
-          icon={Compass}
-          label="Recherche sémantique"
-          onClick={() => {
-            focusSearch();
-            onNavigate?.();
-          }}
-        />
-        <RailItem
-          collapsed={collapsed}
-          icon={Layers}
-          label="Sources"
-          onClick={() => {
-            scrollTo("sources");
-            onNavigate?.();
-          }}
-        />
-      </Section>
+      {/* Sources */}
+      <button
+        onClick={() => {
+          onFlux("sources");
+          onNavigate?.();
+        }}
+        className={cn(
+          "mt-1 flex w-full items-center gap-[10px] rounded-[10px] px-3 py-[10px] text-left text-[13.5px] transition-colors",
+          flux === "sources"
+            ? "bg-background font-semibold text-foreground shadow-[0_1px_2px_rgba(38,0,0,.12)]"
+            : "font-medium text-white/85 hover:bg-white/10",
+        )}
+      >
+        <Rss size={16} className="shrink-0" />
+        <span>Sources</span>
+      </button>
 
-      {/* Compte (épinglé en bas, façon Claude) */}
-      <div className="mt-auto">
-        <button
-          className={cn(
-            "flex w-full items-center gap-2.5 rounded-xl p-1.5 text-left transition-colors hover:bg-white/15",
-            collapsed && "justify-center",
-          )}
-          title={`${USER.name} · ${USER.plan}`}
-        >
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-foreground text-[11px] font-bold text-background">
-            {USER.initials}
-          </span>
-          {!collapsed && (
-            <>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold leading-tight">
-                  {USER.name}
-                </span>
-                <span className="block truncate text-[11px] text-sidebar-muted">{USER.plan}</span>
-              </span>
-              <ChevronsUpDown size={15} className="shrink-0 text-sidebar-foreground/70" />
-            </>
-          )}
-        </button>
+      {/* Compte */}
+      <div className="mt-auto flex items-center gap-[11px] border-t border-white/25 px-2 pb-0.5 pt-3.5">
+        <span className="grid h-[33px] w-[33px] shrink-0 place-items-center rounded-full bg-foreground text-xs font-bold text-background">
+          {USER.initials}
+        </span>
+        <div className="min-w-0 leading-[1.25]">
+          <div className="truncate text-[12.5px] font-semibold text-white">{USER.name}</div>
+          <div className="truncate text-[10.5px] text-white/70">{USER.plan}</div>
+        </div>
       </div>
     </div>
   );
 }
 
-function Section({
-  title,
-  collapsed,
-  children,
-}: {
-  title: string;
-  collapsed: boolean;
-  children: React.ReactNode;
-}) {
+function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <nav className="space-y-1">
-      {!collapsed && (
-        <p className="px-2 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-sidebar-muted">
-          {title}
-        </p>
+    <div
+      className={cn(
+        "mx-2.5 mb-2 mt-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] text-white/65",
+        className,
       )}
+    >
       {children}
-    </nav>
+    </div>
   );
 }
 
-function RailItem({
-  label,
+function NavItem({
   icon: Icon,
-  dot,
+  label,
   active,
-  collapsed,
+  badge,
   onClick,
 }: {
+  icon: LucideIcon;
   label: string;
-  icon?: LucideIcon;
-  dot?: string;
-  active?: boolean;
-  collapsed: boolean;
+  active: boolean;
+  badge?: string;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      title={collapsed ? label : undefined}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-lg text-sm font-medium transition-colors",
-        collapsed ? "h-9 w-9 justify-center p-0" : "px-2.5 py-2",
+        "mb-[3px] flex w-full items-center gap-[10px] rounded-[10px] px-3 py-[10px] text-left text-[13.5px] transition-colors",
         active
-          ? "bg-sidebar-accent text-primary shadow-sm"
-          : "text-sidebar-foreground/90 hover:bg-white/15 hover:text-sidebar-foreground",
+          ? "bg-background font-semibold text-foreground shadow-[0_1px_2px_rgba(38,0,0,.12)]"
+          : "font-medium text-white/85 hover:bg-white/10",
       )}
     >
-      {dot ? (
+      <Icon size={16} className="shrink-0" />
+      <span className="truncate">{label}</span>
+      {badge && (
         <span
-          className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/40"
-          style={{ background: dot }}
-        />
-      ) : (
-        Icon && <Icon size={17} className="shrink-0" />
+          className={cn(
+            "ml-auto rounded-full px-[7px] py-px text-[10px] font-semibold",
+            active ? "bg-foreground/10 text-foreground" : "bg-white/25 text-white",
+          )}
+        >
+          {badge}
+        </span>
       )}
-      {!collapsed && <span className="truncate">{label}</span>}
     </button>
   );
 }

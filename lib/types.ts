@@ -1,5 +1,15 @@
 export type CategoryId = "all" | "tech" | "biz" | "data" | "ux";
 
+// Vues de l'app (design 2a) + densité du feed.
+export type FluxView =
+  | "pourtoi"
+  | "brief"
+  | "recents"
+  | "enregistres"
+  | "tendances"
+  | "sources";
+export type Density = "confort" | "compact";
+
 // Étiquette de source affichée. Sources historiques : "HN" | "Dev.to".
 // Élargi à string pour accueillir les flux RSS / API additionnels
 // (TechCrunch, The Verge, Product Hunt, Le Monde, …).
@@ -38,4 +48,6 @@ export interface Briefing {
 export interface Summary {
   summary: string;
   whyItMatters: string;
+  points?: string[]; // 2-3 points clés (drawer détail)
+  pullquote?: string; // punchline "à ressortir en réunion"
 }

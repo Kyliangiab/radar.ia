@@ -11,13 +11,13 @@
 @layer base {
   :root {
     --background: 42 55% 96%; /* FBF7EE cream */
-    --foreground: 0 90% 7%; /* 260000 noir chaud (texte) */
+    --foreground: 0 100% 7%; /* 260000 noir chaud (texte) */
 
-    --card: 40 60% 99%; /* blanc chaud : les cartes ressortent du fond */
-    --card-foreground: 0 90% 7%;
+    --card: 0 0% 100%; /* blanc pur : surfaces cartes (design 2a) */
+    --card-foreground: 0 100% 7%;
 
-    --popover: 40 60% 99%;
-    --popover-foreground: 0 90% 7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 100% 7%;
 
     --primary: 1 100% 71%; /* FF6B6A corail — CTA, nav active, focus (le "10 %") */
     --primary-foreground: 0 0% 100%;
@@ -25,20 +25,20 @@
     --secondary: 42 100% 50%; /* FFB200 ambre — signal, highlights secondaires */
     --secondary-foreground: 20 90% 10%;
 
-    --muted: 40 45% 90%; /* cream tirant tan */
-    --muted-foreground: 15 22% 34%;
+    --muted: 40 40% 93%; /* cream un peu plus profond (surfaces douces) */
+    --muted-foreground: 0 34% 27%; /* noir-brun atténué (≈ rgba(38,0,0,.6)) */
 
     --accent: 6 90% 94%; /* survols doux (corail très clair) */
     --accent-foreground: 0 80% 20%;
 
     --brand: 1 100% 71%; /* FF6B6A corail — logo, highlights */
-    --hot: 16 77% 53%; /* terracotta — signal chaud */
+    --hot: 8 78% 57%; /* E0503F corail-rouge — signal fort */
 
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 38 42% 84%; /* tan clair, discret sur le cream */
-    --input: 38 42% 84%;
+    --border: 30 18% 88%; /* neutre très discret (≈ rgba(38,0,0,.09)) */
+    --input: 30 18% 88%;
     --ring: 1 100% 71%; /* corail */
 
     --radius: 0.75rem;
@@ -58,10 +58,6 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background-image:
-      radial-gradient(1100px 560px at 88% -14%, hsl(var(--primary) / 0.10), transparent 60%),
-      radial-gradient(900px 480px at 2% 4%, hsl(var(--secondary) / 0.10), transparent 55%);
-    background-attachment: fixed;
   }
   ::selection {
     background: hsl(var(--primary) / 0.22);

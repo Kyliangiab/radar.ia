@@ -1,230 +1,326 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Sparkles } from "lucide-react";
-import type { Article, CategoryId } from "@/lib/types";
-import { CATEGORIES } from "@/lib/categories";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
+import type { Article, Briefing, CategoryId, Density, FluxView } from "@/lib/types";
+import { CATEGORY_MAP } from "@/lib/categories";
 import { USER } from "@/config/brand";
+import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/AppShell";
-import { type FeedSort } from "@/components/Sidebar";
-import { BriefingPanel } from "@/components/BriefingPanel";
-import { ArticleCard } from "@/components/ArticleCard";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Feed } from "@/components/Feed";
+import { BriefBanner } from "@/components/BriefBanner";
+import { ArticleDrawer } from "@/components/ArticleDrawer";
+import { BriefView } from "@/components/views/BriefView";
+import { TendancesView } from "@/components/views/TendancesView";
+import { SourcesView } from "@/components/views/SourcesView";
 
-function applySort(articles: Article[], sort: FeedSort): Article[] {
-  if (sort === "recent") {
-    return [...articles].sort(
-      (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-    );
-  }
-  if (sort === "trending") {
-    return [...articles].sort((a, b) => b.heat - a.heat);
-  }
-  return articles; // "foryou" = classement serveur (fraîcheur × signal)
-}
+const FEED_VIEWS: FluxView[] = ["pourtoi", "recents", "enregistres"];
+const TITLES: Record<string, string> = {
+  pourtoi: "Pour toi",
+  recents: "Les plus récents",
+  enregistres: "Mes fiches",
+};
 
 export default function Home() {
-  const [category, setCategory] = useState<CategoryId>("all");
-  const [sort, setSort] = useState<FeedSort>("foryou");
+  const [flux, setFlux] = useState<FluxView>("pourtoi");
+  const [domain, setDomain] = useState<CategoryId>("all");
+  const [density, setDensity] = useState<Density>("confort");
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [openId, setOpenId] = useState<string | null>(null);
+
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  const [results, setResults] = useState<Article[] | null>(null);
-  const [resultMeta, setResultMeta] = useState<{ query: string; mode: string } | null>(null);
 
-  const load = useCallback(async (cat: CategoryId) => {
+  const [results, setResults] = useState<Article[] | null>(null);
+  const [query, setQuery] = useState("");
+
+  const [briefing, setBriefing] = useState<Briefing | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
+  const briefRequested = useRef(false);
+
+  // ── Chargement du flux ──
+  const load = useCallback(async () => {
     setLoading(true);
-    setFailed(false);
     try {
-      const res = await fetch(`/api/feed?category=${cat}`, { cache: "no-store" });
+      const res = await fetch("/api/feed?category=all", { cache: "no-store" });
       const data = await res.json();
       setArticles(Array.isArray(data.articles) ? data.articles : []);
       setUpdatedAt(new Date());
     } catch {
-      setFailed(true);
       setArticles([]);
     } finally {
       setLoading(false);
     }
   }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // ── Enregistrés (persistés) ──
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("radar:saved");
+      if (raw) setSaved(new Set(JSON.parse(raw)));
+    } catch {}
+  }, []);
+  const toggleSave = useCallback((id: string) => {
+    setSaved((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem("radar:saved", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  // ── Briefing (auto-généré une fois) ──
+  const generateBriefing = useCallback(async (list: Article[]) => {
+    if (briefingLoading || list.length === 0) return;
+    setBriefingLoading(true);
+    try {
+      const res = await fetch("/api/briefing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          articles: list.slice(0, 22).map((a) => ({
+            title: a.title,
+            source: a.source,
+            category: a.category,
+            points: a.points,
+            comments: a.comments,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!data?.error && data?.trends) setBriefing(data);
+    } catch {}
+    finally {
+      setBriefingLoading(false);
+    }
+  }, [briefingLoading]);
 
   useEffect(() => {
-    load(category);
-  }, [category, load]);
+    if (!briefRequested.current && articles.length > 0) {
+      briefRequested.current = true;
+      generateBriefing(articles);
+    }
+  }, [articles, generateBriefing]);
 
-  const sorted = useMemo(() => applySort(articles, sort), [articles, sort]);
+  // ── Feed dérivé ──
+  const feedList = useMemo(() => {
+    let arr = articles.filter((a) => domain === "all" || a.category === domain);
+    if (flux === "recents") {
+      arr = [...arr].sort(
+        (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
+      );
+    } else if (flux === "enregistres") {
+      arr = arr.filter((a) => saved.has(a.id));
+    }
+    return arr;
+  }, [articles, domain, flux, saved]);
 
-  const activeLabel = CATEGORIES.find((c) => c.id === category)?.label ?? "Tout";
+  const openArticle = useMemo(() => {
+    if (!openId) return null;
+    return [...articles, ...(results ?? [])].find((a) => a.id === openId) ?? null;
+  }, [openId, articles, results]);
+
+  const onDomain = useCallback((c: CategoryId) => {
+    setResults(null);
+    setDomain((prev) => (prev === c ? "all" : c));
+    setFlux((f) => (FEED_VIEWS.includes(f) ? f : "pourtoi"));
+  }, []);
+
+  const onFlux = useCallback((v: FluxView) => {
+    setResults(null);
+    setFlux(v);
+  }, []);
+
+  const isFeedView = FEED_VIEWS.includes(flux);
+  const domainLabel = domain !== "all" ? CATEGORY_MAP[domain]?.label : "";
+  const domainColor = domain !== "all" ? CATEGORY_MAP[domain]?.color : "#FF6B6A";
 
   return (
-    <AppShell
-      category={category}
-      onCategory={(c) => {
-        setResults(null);
-        setResultMeta(null);
-        setCategory(c);
-      }}
-      sort={sort}
-      onSort={setSort}
-      onResults={(arts, query, mode) => {
-        setResults(arts);
-        setResultMeta({ query, mode });
-      }}
-      onClear={() => {
-        setResults(null);
-        setResultMeta(null);
-      }}
-      updatedAt={updatedAt}
-      loading={loading}
-      onRefresh={() => load(category)}
-    >
-      {results !== null ? (
-        <SearchResults
-          results={results}
-          meta={resultMeta}
-          onBack={() => {
-            setResults(null);
-            setResultMeta(null);
-          }}
-        />
-      ) : (
-        <>
-          {/* Hero — salutation */}
-          <div className="mb-8 flex items-center justify-center gap-3 py-4 text-center">
-            <Sparkles className="text-primary" size={30} strokeWidth={1.6} />
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              On repart, {USER.firstName}
-            </h1>
-          </div>
-
-          <div id="briefing" className="scroll-mt-20">
-            <BriefingPanel articles={sorted} />
-          </div>
-
-          {/* Bandeau contexte flux */}
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <h2 className="font-display text-lg font-semibold text-foreground">
-              {activeLabel}
-              <span className="ml-2 font-mono text-xs font-normal text-muted-foreground/80">
-                {sort === "recent" ? "récents" : sort === "trending" ? "tendances" : "pour toi"}
-              </span>
-            </h2>
-            {!loading && !failed && (
-              <span className="font-mono text-xs text-muted-foreground/80">{sorted.length} articles</span>
+    <>
+      <AppShell
+        flux={flux}
+        onFlux={onFlux}
+        domain={domain}
+        onDomain={onDomain}
+        savedCount={saved.size}
+        onResults={(arts, q) => {
+          setResults(arts);
+          setQuery(q);
+        }}
+        onClearSearch={() => setResults(null)}
+        updatedAt={updatedAt}
+      >
+        {results !== null ? (
+          <SearchResults
+            results={results}
+            query={query}
+            density={density}
+            savedSet={saved}
+            onOpen={setOpenId}
+            onSave={toggleSave}
+            onBack={() => setResults(null)}
+          />
+        ) : flux === "brief" ? (
+          <BriefView
+            briefing={briefing}
+            loading={briefingLoading}
+            analyzed={articles.length}
+            articles={articles}
+            onGenerate={() => generateBriefing(articles)}
+          />
+        ) : flux === "tendances" ? (
+          <TendancesView articles={articles} briefing={briefing} analyzed={articles.length} />
+        ) : flux === "sources" ? (
+          <SourcesView />
+        ) : (
+          <>
+            {flux === "pourtoi" && (
+              <div className="mb-2 text-[13px] text-foreground/50">Bonjour, {USER.firstName}</div>
             )}
-          </div>
 
-          {loading ? (
-            <Masonry>
-              {Array.from({ length: 9 }).map((_, i) => (
-                <Skeleton key={i} className="mb-4 h-64 break-inside-avoid rounded-2xl" />
-              ))}
-            </Masonry>
-          ) : failed ? (
-            <EmptyState
-              title="Flux indisponible"
-              body="Impossible de joindre les sources pour le moment. Vérifie ta connexion et rafraîchis."
-            />
-          ) : sorted.length === 0 ? (
-            <EmptyState
-              title="Rien à afficher"
-              body="Aucun article pour ce thème à cet instant. Essaie une autre catégorie."
-            />
-          ) : (
-            <Masonry>
-              {sorted.map((a, i) => (
-                <ArticleCard key={a.id} a={a} index={i} />
-              ))}
-            </Masonry>
-          )}
+            <div className="mb-[26px] flex flex-wrap items-center gap-3.5">
+              <h1 className="text-[25px] font-bold tracking-[-0.015em] text-foreground">
+                {TITLES[flux]}
+              </h1>
+              {domain !== "all" && (
+                <button
+                  onClick={() => setDomain("all")}
+                  className="inline-flex items-center gap-1.5 rounded-2xl px-[11px] py-[5px] text-[12px] font-semibold"
+                  style={{ background: `${domainColor}22`, color: domainColor }}
+                >
+                  {domainLabel} <span className="opacity-65">×</span>
+                </button>
+              )}
+              <span className="text-[12.5px] text-foreground/40">{feedList.length} articles</span>
 
-          <SourcesSection />
-        </>
-      )}
-    </AppShell>
+              <div className="ml-auto flex gap-0.5 rounded-[9px] bg-foreground/5 p-[3px]">
+                {(["confort", "compact"] as Density[]).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDensity(d)}
+                    className={cn(
+                      "rounded-[7px] px-3.5 py-1.5 text-[12px] font-semibold transition-colors",
+                      density === d
+                        ? "bg-card text-foreground shadow-[0_1px_2px_rgba(38,0,0,.1)]"
+                        : "text-foreground/50 hover:text-foreground",
+                    )}
+                  >
+                    {d === "confort" ? "Confort" : "Compact"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {flux === "pourtoi" && (
+              <BriefBanner
+                briefing={briefing}
+                loading={briefingLoading}
+                analyzed={articles.length}
+                onOpen={() => setFlux("brief")}
+              />
+            )}
+
+            {loading ? (
+              <FeedSkeleton />
+            ) : feedList.length === 0 ? (
+              <EmptyState flux={flux} />
+            ) : (
+              <Feed
+                articles={feedList}
+                density={density}
+                savedSet={saved}
+                onOpen={setOpenId}
+                onSave={toggleSave}
+              />
+            )}
+          </>
+        )}
+      </AppShell>
+
+      <ArticleDrawer
+        article={openArticle}
+        saved={openArticle ? saved.has(openArticle.id) : false}
+        onClose={() => setOpenId(null)}
+        onSave={() => openArticle && toggleSave(openArticle.id)}
+      />
+    </>
   );
 }
 
 function SearchResults({
   results,
-  meta,
+  query,
+  density,
+  savedSet,
+  onOpen,
+  onSave,
   onBack,
 }: {
   results: Article[];
-  meta: { query: string; mode: string } | null;
+  query: string;
+  density: Density;
+  savedSet: Set<string>;
+  onOpen: (id: string) => void;
+  onSave: (id: string) => void;
   onBack: () => void;
 }) {
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          <span className="mono-label mr-2 text-primary">
-            {meta?.mode === "semantic" ? "Sémantique" : "Mot-clé"}
-          </span>
-          {results.length} résultat{results.length > 1 ? "s" : ""} pour «{" "}
-          <span className="text-foreground">{meta?.query}</span> »
-        </p>
-        <button onClick={onBack} className="text-xs font-semibold text-muted-foreground hover:text-foreground">
-          ← Retour au flux
+      <div className="mb-6 flex items-center gap-3">
+        <h1 className="text-[22px] font-bold text-foreground">Recherche</h1>
+        <span className="text-[13px] text-foreground/50">
+          {results.length} résultat{results.length > 1 ? "s" : ""} pour «&nbsp;
+          <span className="text-foreground">{query}</span>&nbsp;»
+        </span>
+        <button
+          onClick={onBack}
+          className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-foreground/50 hover:text-foreground"
+        >
+          <X size={14} /> Fermer
         </button>
       </div>
       {results.length === 0 ? (
-        <EmptyState
-          title="Aucun résultat"
-          body="Essaie d'autres termes, ou bascule entre recherche sémantique et mot-clé."
-        />
+        <div className="rounded-[16px] border border-border bg-card p-12 text-center">
+          <p className="text-[15px] font-semibold text-foreground/60">Aucun résultat</p>
+          <p className="mt-1.5 text-[13px] text-foreground/45">Essaie d'autres termes.</p>
+        </div>
       ) : (
-        <Masonry>
-          {results.map((a, i) => (
-            <ArticleCard key={a.id} a={a} index={i} />
-          ))}
-        </Masonry>
+        <Feed articles={results} density={density} savedSet={savedSet} onOpen={onOpen} onSave={onSave} />
       )}
     </div>
   );
 }
 
-function Masonry({ children }: { children: React.ReactNode }) {
-  return <div className="columns-1 gap-4 sm:columns-2 xl:columns-3">{children}</div>;
-}
-
-function EmptyState({ title, body }: { title: string; body: string }) {
+function FeedSkeleton() {
   return (
-    <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-card">
-      <p className="font-display text-lg font-semibold text-foreground">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{body}</p>
+    <div className="grid grid-cols-1 gap-[22px] sm:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-[320px] animate-pulse rounded-[18px] border border-border bg-card" />
+      ))}
     </div>
   );
 }
 
-function SourcesSection() {
-  const sources = [
-    "Hacker News",
-    "Dev.to",
-    "TechCrunch",
-    "The Verge",
-    "VentureBeat",
-    "Smashing Magazine",
-    "Le Monde",
-    "Product Hunt",
-  ];
+function EmptyState({ flux }: { flux: FluxView }) {
+  const isSaved = flux === "enregistres";
   return (
-    <section id="sources" className="mt-12 scroll-mt-20 border-t border-border pt-8">
-      <p className="mono-label mb-3">Sources agrégées</p>
-      <div className="flex flex-wrap gap-2">
-        {sources.map((s) => (
-          <span
-            key={s}
-            className="rounded-full border border-border bg-card px-3 py-1 font-mono text-xs text-muted-foreground"
-          >
-            {s}
-          </span>
-        ))}
+    <div className="py-[72px] text-center">
+      <div className="mx-auto mb-4 h-11 w-11 rounded-xl border-2 border-dashed border-foreground/20" />
+      <div className="mb-1.5 text-[15px] font-semibold text-foreground/55">
+        {isSaved ? "Aucune fiche enregistrée" : "Rien à afficher"}
       </div>
-      <p className="mt-4 font-mono text-xs text-muted-foreground/80">
-        RSS + API · dédup · résumé & classification IA (Groq) · embeddings locaux (e5-small)
-      </p>
-    </section>
+      <div className="text-[13px] text-foreground/45">
+        {isSaved
+          ? "Enregistrez un article et il atterrira ici, prêt à ressortir en réunion."
+          : "Aucun article pour ce thème à cet instant. Essaie une autre catégorie."}
+      </div>
+    </div>
   );
 }
