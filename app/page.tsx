@@ -10,6 +10,7 @@ import { Feed } from "@/components/Feed";
 import { BriefBanner } from "@/components/BriefBanner";
 import { ArticleDrawer } from "@/components/ArticleDrawer";
 import { AuthScreen, type AuthUser } from "@/components/AuthScreen";
+import { isLegacyPlan, randomPersona } from "@/lib/personas";
 import { BriefView } from "@/components/views/BriefView";
 import { TendancesView } from "@/components/views/TendancesView";
 import { SourcesView } from "@/components/views/SourcesView";
@@ -64,7 +65,15 @@ export default function Home() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem("radar:user");
-      if (raw) setUser(JSON.parse(raw));
+      if (raw) {
+        const u = JSON.parse(raw) as AuthUser;
+        // Migre les anciens "plans" vers un surnom aléatoire (persisté).
+        if (isLegacyPlan(u.plan)) {
+          u.plan = randomPersona();
+          localStorage.setItem("radar:user", JSON.stringify(u));
+        }
+        setUser(u);
+      }
     } catch {}
     setAuthChecked(true);
   }, []);

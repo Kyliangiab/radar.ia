@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { BRAND } from "@/config/brand";
+import { randomPersona } from "@/lib/personas";
 import { ThemeToggle } from "./ThemeToggle";
 import { Logo } from "./Logo";
 
@@ -50,7 +51,7 @@ export function AuthScreen({ onAuth }: { onAuth: (u: AuthUser) => void }) {
         name: finalName,
         email: finalEmail,
         initials: initialsOf(finalName),
-        plan: mode === "signup" ? "Nouveau · Plan Free" : "Plan Max",
+        plan: randomPersona(),
       });
     }, 500);
   }
