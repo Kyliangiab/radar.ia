@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Article, CategoryId, FluxView } from "@/lib/types";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, type AccountUser } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppShell({
@@ -11,6 +11,8 @@ export function AppShell({
   domain,
   onDomain,
   savedCount,
+  user,
+  onLogout,
   onResults,
   onClearSearch,
   updatedAt,
@@ -21,6 +23,8 @@ export function AppShell({
   domain: CategoryId;
   onDomain: (c: CategoryId) => void;
   savedCount: number;
+  user: AccountUser;
+  onLogout: () => void;
   onResults: (articles: Article[], query: string) => void;
   onClearSearch: () => void;
   updatedAt: Date | null;
@@ -35,6 +39,8 @@ export function AppShell({
       domain={domain}
       onDomain={onDomain}
       savedCount={savedCount}
+      user={user}
+      onLogout={onLogout}
       onNavigate={() => setMobileOpen(false)}
     />
   );

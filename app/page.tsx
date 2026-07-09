@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Article, Briefing, CategoryId, Density, FluxView } from "@/lib/types";
 import { CATEGORY_MAP } from "@/lib/categories";
-import { USER } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/AppShell";
 import { Feed } from "@/components/Feed";
 import { BriefBanner } from "@/components/BriefBanner";
 import { ArticleDrawer } from "@/components/ArticleDrawer";
+import { AuthScreen, type AuthUser } from "@/components/AuthScreen";
 import { BriefView } from "@/components/views/BriefView";
 import { TendancesView } from "@/components/views/TendancesView";
 import { SourcesView } from "@/components/views/SourcesView";
@@ -22,6 +22,9 @@ const TITLES: Record<string, string> = {
 };
 
 export default function Home() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
   const [flux, setFlux] = useState<FluxView>("pourtoi");
   const [domain, setDomain] = useState<CategoryId>("all");
   const [density, setDensity] = useState<Density>("confort");
@@ -54,8 +57,32 @@ export default function Home() {
     }
   }, []);
   useEffect(() => {
-    load();
-  }, [load]);
+    if (user) load();
+  }, [user, load]);
+
+  // ── Auth (démo, persistée) ──
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("radar:user");
+      if (raw) setUser(JSON.parse(raw));
+    } catch {}
+    setAuthChecked(true);
+  }, []);
+  const handleAuth = useCallback((u: AuthUser) => {
+    setUser(u);
+    try {
+      localStorage.setItem("radar:user", JSON.stringify(u));
+    } catch {}
+  }, []);
+  const logout = useCallback(() => {
+    setUser(null);
+    setArticles([]);
+    setBriefing(null);
+    briefRequested.current = false;
+    try {
+      localStorage.removeItem("radar:user");
+    } catch {}
+  }, []);
 
   // ── Enregistrés (persistés) ──
   useEffect(() => {
@@ -138,9 +165,13 @@ export default function Home() {
     setFlux(v);
   }, []);
 
-  const isFeedView = FEED_VIEWS.includes(flux);
   const domainLabel = domain !== "all" ? CATEGORY_MAP[domain]?.label : "";
   const domainColor = domain !== "all" ? CATEGORY_MAP[domain]?.color : "#FF6B6A";
+  const firstName = user?.name.trim().split(/\s+/)[0] ?? "";
+
+  // ── Gate d'authentification ──
+  if (!authChecked) return <div className="min-h-screen bg-background" />;
+  if (!user) return <AuthScreen onAuth={handleAuth} />;
 
   return (
     <>
@@ -150,6 +181,8 @@ export default function Home() {
         domain={domain}
         onDomain={onDomain}
         savedCount={saved.size}
+        user={user}
+        onLogout={logout}
         onResults={(arts, q) => {
           setResults(arts);
           setQuery(q);
@@ -182,7 +215,7 @@ export default function Home() {
         ) : (
           <>
             {flux === "pourtoi" && (
-              <div className="mb-2 text-[13px] text-foreground/50">Bonjour, {USER.firstName}</div>
+              <div className="mb-2 text-[13px] text-foreground/50">Bonjour, {firstName}</div>
             )}
 
             <div className="mb-[26px] flex flex-wrap items-center gap-3.5">
