@@ -1,16 +1,29 @@
 "use client";
 
-import { BRAND } from "@/config/brand";
-import { CATEGORIES, RAMP } from "@/lib/categories";
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  Sparkles,
+  Clock,
+  Flame,
+  Compass,
+  Layers,
+  ChevronsUpDown,
+  type LucideIcon,
+} from "lucide-react";
+import { BRAND, USER } from "@/config/brand";
+import { CATEGORIES } from "@/lib/categories";
 import type { CategoryId } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 
 export type FeedSort = "foryou" | "recent" | "trending";
 
-const FLUX: { id: FeedSort; label: string; icon: JSX.Element }[] = [
-  { id: "foryou", label: "Pour toi", icon: <IconSparkle /> },
-  { id: "recent", label: "Récents", icon: <IconClock /> },
-  { id: "trending", label: "Tendances", icon: <IconFlame /> },
+const FLUX: { id: FeedSort; label: string; icon: LucideIcon }[] = [
+  { id: "foryou", label: "Pour toi", icon: Sparkles },
+  { id: "recent", label: "Récents", icon: Clock },
+  { id: "trending", label: "Tendances", icon: Flame },
 ];
 
 function focusSearch() {
@@ -25,49 +38,71 @@ export function Sidebar({
   onCategory,
   sort,
   onSort,
+  collapsed = false,
+  onToggle,
   onNavigate,
 }: {
   category: CategoryId;
   onCategory: (c: CategoryId) => void;
   sort: FeedSort;
   onSort: (s: FeedSort) => void;
+  collapsed?: boolean;
+  onToggle?: () => void;
   /** appelé après un clic (pour refermer le drawer mobile) */
   onNavigate?: () => void;
 }) {
   const domains = CATEGORIES.filter((c) => c.id !== "all");
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto p-4">
-      {/* Logo + nom */}
-      <div className="flex items-center gap-3 px-1">
-        <Logo />
-        <div className="min-w-0">
-          <p className="font-display text-lg font-bold leading-none tracking-tight">
-            {BRAND.name}
-          </p>
-          <p className="mono-label mt-1 leading-none">{BRAND.baseline}</p>
-        </div>
+    <div className="flex h-full flex-col gap-4 p-3 text-sidebar-foreground">
+      {/* En-tête : logo + nom + toggle */}
+      <div className={cn("flex items-center gap-2", collapsed ? "flex-col" : "justify-between")}>
+        {!collapsed && (
+          <div className="flex min-w-0 items-center gap-2.5 pl-1">
+            <Logo />
+            <div className="min-w-0">
+              <p className="font-display text-base font-bold leading-none tracking-tight">
+                {BRAND.name}
+              </p>
+              <p className="mt-1 truncate font-mono text-[10px] uppercase tracking-[0.14em] text-sidebar-muted">
+                {BRAND.baseline}
+              </p>
+            </div>
+          </div>
+        )}
+        {collapsed && <Logo />}
+        {onToggle && (
+          <button
+            onClick={onToggle}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sidebar-foreground/80 transition-colors hover:bg-white/15 hover:text-sidebar-foreground"
+            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+            title={collapsed ? "Déplier" : "Replier"}
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        )}
       </div>
 
-      {/* CTA briefing */}
-      <button
+      {/* Recherche (focus la barre du topbar) */}
+      <RailItem
+        collapsed={collapsed}
+        icon={Search}
+        label="Rechercher"
         onClick={() => {
-          scrollTo("briefing");
+          focusSearch();
           onNavigate?.();
         }}
-        className="inline-flex items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/15 px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-accent/25"
-      >
-        <IconSpark /> Générer le briefing
-      </button>
+      />
 
       {/* Flux */}
-      <Section title="Flux">
+      <Section title="Flux" collapsed={collapsed}>
         {FLUX.map((f) => (
-          <NavItem
+          <RailItem
             key={f.id}
-            active={f.id === sort && category === "all"}
+            collapsed={collapsed}
             icon={f.icon}
             label={f.label}
+            active={f.id === sort && category === "all"}
             onClick={() => {
               onSort(f.id);
               onCategory("all");
@@ -78,13 +113,14 @@ export function Sidebar({
       </Section>
 
       {/* Domaines */}
-      <Section title="Domaines">
+      <Section title="Domaines" collapsed={collapsed}>
         {domains.map((c) => (
-          <NavItem
+          <RailItem
             key={c.id}
-            active={c.id === category}
+            collapsed={collapsed}
             dot={c.color}
             label={c.label}
+            active={c.id === category}
             onClick={() => {
               onCategory(c.id);
               onNavigate?.();
@@ -94,17 +130,19 @@ export function Sidebar({
       </Section>
 
       {/* Explorer */}
-      <Section title="Explorer">
-        <NavItem
-          icon={<IconSearch />}
+      <Section title="Explorer" collapsed={collapsed}>
+        <RailItem
+          collapsed={collapsed}
+          icon={Compass}
           label="Recherche sémantique"
           onClick={() => {
             focusSearch();
             onNavigate?.();
           }}
         />
-        <NavItem
-          icon={<IconLayers />}
+        <RailItem
+          collapsed={collapsed}
+          icon={Layers}
           label="Sources"
           onClick={() => {
             scrollTo("sources");
@@ -113,100 +151,93 @@ export function Sidebar({
         />
       </Section>
 
-      <div className="mt-auto px-1 pt-2">
-        <p className="font-mono text-[11px] leading-relaxed text-faint">
-          {BRAND.name} · {BRAND.maker}
-        </p>
+      {/* Compte (épinglé en bas, façon Claude) */}
+      <div className="mt-auto">
+        <button
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-xl p-1.5 text-left transition-colors hover:bg-white/15",
+            collapsed && "justify-center",
+          )}
+          title={`${USER.name} · ${USER.plan}`}
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-foreground text-[11px] font-bold text-background">
+            {USER.initials}
+          </span>
+          {!collapsed && (
+            <>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold leading-tight">
+                  {USER.name}
+                </span>
+                <span className="block truncate text-[11px] text-sidebar-muted">{USER.plan}</span>
+              </span>
+              <ChevronsUpDown size={15} className="shrink-0 text-sidebar-foreground/70" />
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  collapsed,
+  children,
+}: {
+  title: string;
+  collapsed: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <nav className="space-y-1">
-      <p className="mono-label px-2 pb-1">{title}</p>
+      {!collapsed && (
+        <p className="px-2 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-sidebar-muted">
+          {title}
+        </p>
+      )}
       {children}
     </nav>
   );
 }
 
-function NavItem({
+function RailItem({
   label,
-  icon,
+  icon: Icon,
   dot,
   active,
+  collapsed,
   onClick,
 }: {
   label: string;
-  icon?: JSX.Element;
+  icon?: LucideIcon;
   dot?: string;
   active?: boolean;
+  collapsed: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+      title={collapsed ? label : undefined}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-lg text-sm font-medium transition-colors",
+        collapsed ? "h-9 w-9 justify-center p-0" : "px-2.5 py-2",
         active
-          ? "bg-accent/15 text-ink"
-          : "text-muted hover:bg-panel2 hover:text-ink"
-      }`}
+          ? "bg-sidebar-accent text-primary shadow-sm"
+          : "text-sidebar-foreground/90 hover:bg-white/15 hover:text-sidebar-foreground",
+      )}
     >
       {dot ? (
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: dot }} />
+        <span
+          className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/40"
+          style={{ background: dot }}
+        />
       ) : (
-        <span className={`shrink-0 ${active ? "text-accent" : "text-faint"}`}>{icon}</span>
+        Icon && <Icon size={17} className="shrink-0" />
       )}
-      <span className="truncate">{label}</span>
+      {!collapsed && <span className="truncate">{label}</span>}
     </button>
-  );
-}
-
-/* ── Icônes (SVG inline, pas de dépendance) ── */
-function IconSparkle() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path d="M12 3l1.8 4.9L18.7 9.7 13.8 11.5 12 16.4 10.2 11.5 5.3 9.7 10.2 7.9z" fill="currentColor" />
-    </svg>
-  );
-}
-function IconClock() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" />
-      <path d="M12 8v4l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconFlame() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path d="M12 3c1 3-1 4-2 6a4 4 0 108 .5C18 6 14 5 12 3z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function IconSearch() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-      <path d="m20 20-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconLayers() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path d="M12 3l9 5-9 5-9-5 9-5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M3 13l9 5 9-5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function IconSpark() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-      <path d="M12 2v6m0 8v6M2 12h6m8 0h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
   );
 }

@@ -13,13 +13,14 @@ export interface CategoryDef {
 /**
  * Les 4 domaines imposés par le brief :
  * Tech · Business de la tech · Data & IA · UX & solutions numériques.
- * Couleurs = palette Marple (CA2851 · FF6766 · FFB173 · FFE3B3).
+ * Couleurs dérivées de la palette (FAF3E3 · FFB200 · E35C2B · 180700) —
+ * 4 tons chauds distincts, lisibles sur fond cream.
  */
 export const CATEGORIES: CategoryDef[] = [
   {
     id: "all",
     label: "Tout",
-    color: "#FF6766",
+    color: "#E35C2B",
     gradient: true,
     hnFrontPage: true,
     devtoTags: [],
@@ -27,28 +28,28 @@ export const CATEGORIES: CategoryDef[] = [
   {
     id: "tech",
     label: "Tech",
-    color: "#CA2851",
+    color: "#E35C2B", // terracotta
     hnQuery: "technology",
     devtoTags: ["technology", "hardware"],
   },
   {
     id: "biz",
     label: "Business",
-    color: "#FF6766",
+    color: "#FFB200", // ambre
     hnQuery: "startup",
     devtoTags: ["startup", "career"],
   },
   {
     id: "data",
     label: "Data & IA",
-    color: "#FFB173",
+    color: "#8A2E12", // cocoa-red profond
     hnQuery: "AI",
     devtoTags: ["ai", "machinelearning"],
   },
   {
     id: "ux",
     label: "UX & Design",
-    color: "#FFE3B3",
+    color: "#C98A3C", // ochre chaud
     hnQuery: "design",
     devtoTags: ["design", "ux"],
   },
@@ -67,4 +68,4 @@ export function categoryColor(id: CategoryId): string {
 }
 
 // Dégradé signature (barre briefing, pastille "Tout")
-export const RAMP = "linear-gradient(90deg,#CA2851,#FF6766,#FFB173,#FFE3B3)";
+export const RAMP = "linear-gradient(90deg,#8A2E12,#E35C2B,#FFB200,#FAF3E3)";

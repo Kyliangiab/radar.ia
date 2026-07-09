@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Sparkles } from "lucide-react";
 import type { Article, CategoryId } from "@/lib/types";
 import { CATEGORIES } from "@/lib/categories";
+import { USER } from "@/config/brand";
 import { AppShell } from "@/components/AppShell";
 import { type FeedSort } from "@/components/Sidebar";
 import { BriefingPanel } from "@/components/BriefingPanel";
 import { ArticleCard } from "@/components/ArticleCard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function applySort(articles: Article[], sort: FeedSort): Article[] {
   if (sort === "recent") {
@@ -87,27 +90,35 @@ export default function Home() {
         />
       ) : (
         <>
+          {/* Hero — salutation */}
+          <div className="mb-8 flex items-center justify-center gap-3 py-4 text-center">
+            <Sparkles className="text-primary" size={30} strokeWidth={1.6} />
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              On repart, {USER.firstName}
+            </h1>
+          </div>
+
           <div id="briefing" className="scroll-mt-20">
             <BriefingPanel articles={sorted} />
           </div>
 
           {/* Bandeau contexte flux */}
           <div className="mb-5 flex items-center justify-between gap-3">
-            <h1 className="font-display text-lg font-semibold text-ink">
+            <h2 className="font-display text-lg font-semibold text-foreground">
               {activeLabel}
-              <span className="ml-2 font-mono text-xs font-normal text-faint">
+              <span className="ml-2 font-mono text-xs font-normal text-muted-foreground/80">
                 {sort === "recent" ? "récents" : sort === "trending" ? "tendances" : "pour toi"}
               </span>
-            </h1>
+            </h2>
             {!loading && !failed && (
-              <span className="font-mono text-xs text-faint">{sorted.length} articles</span>
+              <span className="font-mono text-xs text-muted-foreground/80">{sorted.length} articles</span>
             )}
           </div>
 
           {loading ? (
             <Masonry>
               {Array.from({ length: 9 }).map((_, i) => (
-                <div key={i} className="mb-4 h-64 break-inside-avoid rounded-2xl border border-line bg-panel2/40 animate-pulse" />
+                <Skeleton key={i} className="mb-4 h-64 break-inside-avoid rounded-2xl" />
               ))}
             </Masonry>
           ) : failed ? (
@@ -147,14 +158,14 @@ function SearchResults({
   return (
     <div>
       <div className="mb-5 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted">
-          <span className="mono-label mr-2 text-accent">
+        <p className="text-sm text-muted-foreground">
+          <span className="mono-label mr-2 text-primary">
             {meta?.mode === "semantic" ? "Sémantique" : "Mot-clé"}
           </span>
           {results.length} résultat{results.length > 1 ? "s" : ""} pour «{" "}
-          <span className="text-ink">{meta?.query}</span> »
+          <span className="text-foreground">{meta?.query}</span> »
         </p>
-        <button onClick={onBack} className="text-xs font-semibold text-muted hover:text-ink">
+        <button onClick={onBack} className="text-xs font-semibold text-muted-foreground hover:text-foreground">
           ← Retour au flux
         </button>
       </div>
@@ -180,9 +191,9 @@ function Masonry({ children }: { children: React.ReactNode }) {
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-panel p-10 text-center shadow-panel">
-      <p className="font-display text-lg font-semibold text-ink">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-muted">{body}</p>
+    <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-card">
+      <p className="font-display text-lg font-semibold text-foreground">{title}</p>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{body}</p>
     </div>
   );
 }
@@ -199,19 +210,19 @@ function SourcesSection() {
     "Product Hunt",
   ];
   return (
-    <section id="sources" className="mt-12 scroll-mt-20 border-t border-line pt-8">
+    <section id="sources" className="mt-12 scroll-mt-20 border-t border-border pt-8">
       <p className="mono-label mb-3">Sources agrégées</p>
       <div className="flex flex-wrap gap-2">
         {sources.map((s) => (
           <span
             key={s}
-            className="rounded-full border border-line bg-panel px-3 py-1 font-mono text-xs text-muted"
+            className="rounded-full border border-border bg-card px-3 py-1 font-mono text-xs text-muted-foreground"
           >
             {s}
           </span>
         ))}
       </div>
-      <p className="mt-4 font-mono text-xs text-faint">
+      <p className="mt-4 font-mono text-xs text-muted-foreground/80">
         RSS + API · dédup · résumé & classification IA (Groq) · embeddings locaux (e5-small)
       </p>
     </section>

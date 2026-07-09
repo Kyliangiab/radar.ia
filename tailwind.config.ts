@@ -1,37 +1,82 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Design tokens "Radar" — canvas indigo sombre (façon daily.dev).
- * Les deux accents (--accent / --hot) sont pilotés par des variables CSS
- * dans app/globals.css : change-les là pour rethemer toute l'app.
+ * Design tokens "Radar" — thème clair chaud (palette Marple, règle 60/30/10).
+ * Les couleurs sont pilotées par des variables CSS HSL dans app/globals.css
+ * (convention shadcn/ui). Change-les là pour rethemer toute l'app.
  */
 const config: Config = {
+  darkMode: ["class"],
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./config/**/*.{ts,tsx}",
   ],
   theme: {
+    container: {
+      center: true,
+      padding: "1.5rem",
+      screens: { "2xl": "1200px" },
+    },
     extend: {
       colors: {
-        base: "#0F1117",
-        panel: "#171A21",
-        panel2: "#1E222C",
-        line: "#262B36",
-        ink: "#E8EAF0",
-        muted: "#9AA3B2",
-        faint: "#646C7E",
-        accent: "rgb(var(--accent) / <alpha-value>)",
-        hot: "rgb(var(--hot) / <alpha-value>)",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        // Accents de marque
+        brand: "hsl(var(--brand))",
+        hot: "hsl(var(--hot))",
+        // Sidebar corail
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          muted: "hsl(var(--sidebar-muted))",
+          accent: "hsl(var(--sidebar-accent))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        display: ["var(--font-display)", "system-ui", "sans-serif"],
-        sans: ["var(--font-body)", "system-ui", "sans-serif"],
+        display: ["var(--font-poppins)", "system-ui", "sans-serif"],
+        sans: ["var(--font-poppins)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       boxShadow: {
-        panel: "0 1px 0 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.7)",
-        glow: "0 0 0 1px rgb(var(--accent) / 0.35), 0 0 24px -6px rgb(var(--accent) / 0.35)",
+        card: "0 1px 2px 0 hsl(30 40% 30% / 0.06), 0 8px 24px -14px hsl(30 40% 30% / 0.25)",
+        glow: "0 0 0 1px hsl(var(--ring) / 0.35), 0 0 24px -6px hsl(var(--ring) / 0.45)",
       },
       keyframes: {
         sweep: {
@@ -46,15 +91,25 @@ const config: Config = {
           "0%,100%": { opacity: "1" },
           "50%": { opacity: "0.35" },
         },
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
       },
       animation: {
         sweep: "sweep 4s linear infinite",
         rise: "rise 0.4s ease-out both",
         pulseDot: "pulseDot 1.8s ease-in-out infinite",
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };
 
 export default config;

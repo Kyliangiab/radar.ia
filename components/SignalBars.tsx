@@ -4,7 +4,7 @@ export function SignalBars({ heat }: { heat: number }) {
   const hot = heat >= 70;
   return (
     <span
-      className="inline-flex items-end gap-[3px] h-4"
+      className="inline-flex h-4 items-end gap-[3px]"
       title={`Signal ${heat}/100`}
       aria-label={`Force du signal ${heat} sur 100`}
     >
@@ -18,10 +18,10 @@ export function SignalBars({ heat }: { heat: number }) {
               height: `${5 + i * 2.6}px`,
               background: on
                 ? hot
-                  ? "rgb(var(--hot))"
-                  : "rgb(var(--accent))"
-                : "#3a322d",
-              opacity: on ? 1 : 0.6,
+                  ? "hsl(var(--hot))"
+                  : "hsl(var(--brand))"
+                : "hsl(var(--border))",
+              opacity: on ? 1 : 0.7,
             }}
           />
         );

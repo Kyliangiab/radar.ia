@@ -31,23 +31,34 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
-      {/* ── Sidebar desktop (fixe) ── */}
-      <aside className="sticky top-0 hidden h-screen border-r border-line bg-panel/40 lg:block">
-        <Sidebar category={category} onCategory={onCategory} sort={sort} onSort={onSort} />
+    <div
+      className="min-h-screen lg:grid"
+      style={{ gridTemplateColumns: collapsed ? "72px minmax(0,1fr)" : "264px minmax(0,1fr)" }}
+    >
+      {/* ── Sidebar desktop (corail, repliable) ── */}
+      <aside className="sticky top-0 hidden h-screen bg-sidebar lg:block">
+        <Sidebar
+          category={category}
+          onCategory={onCategory}
+          sort={sort}
+          onSort={onSort}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((v) => !v)}
+        />
       </aside>
 
-      {/* ── Sidebar mobile (drawer) ── */}
+      {/* ── Sidebar mobile (drawer corail) ── */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
-          <div className="absolute left-0 top-0 h-full w-72 border-r border-line bg-base shadow-2xl">
+          <div className="absolute left-0 top-0 h-full w-72 bg-sidebar shadow-2xl">
             <Sidebar
               category={category}
               onCategory={onCategory}
@@ -63,6 +74,7 @@ export function AppShell({
       <div className="min-w-0">
         <Topbar
           category={category}
+          onCategory={onCategory}
           onResults={onResults}
           onClear={onClear}
           updatedAt={updatedAt}

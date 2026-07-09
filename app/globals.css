@@ -2,46 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* ── ACCENTS Marple (édite ces 2 lignes pour rethemer toute l'app) ── */
-  --accent: 255 103 102; /* FF6766 corail (interactif) */
-  --hot: 202 40 81; /* CA2851 crimson (signal chaud)   */
-}
-
+/**
+ * Thème clair "Radar" — règle 60/30/10.
+ * Palette : FBF7EE (cream, fond 60%) · FF6B6A (corail, sidebar + accent 10%) ·
+ * 260000 (noir, texte). Accents chauds conservés (ambre/terracotta) pour le
+ * signal et les couvertures. Tokens shadcn/ui en HSL (Tailwind v3).
+ */
 @layer base {
+  :root {
+    --background: 42 55% 96%; /* FBF7EE cream */
+    --foreground: 0 90% 7%; /* 260000 noir chaud (texte) */
+
+    --card: 40 60% 99%; /* blanc chaud : les cartes ressortent du fond */
+    --card-foreground: 0 90% 7%;
+
+    --popover: 40 60% 99%;
+    --popover-foreground: 0 90% 7%;
+
+    --primary: 1 100% 71%; /* FF6B6A corail — CTA, nav active, focus (le "10 %") */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 42 100% 50%; /* FFB200 ambre — signal, highlights secondaires */
+    --secondary-foreground: 20 90% 10%;
+
+    --muted: 40 45% 90%; /* cream tirant tan */
+    --muted-foreground: 15 22% 34%;
+
+    --accent: 6 90% 94%; /* survols doux (corail très clair) */
+    --accent-foreground: 0 80% 20%;
+
+    --brand: 1 100% 71%; /* FF6B6A corail — logo, highlights */
+    --hot: 16 77% 53%; /* terracotta — signal chaud */
+
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 38 42% 84%; /* tan clair, discret sur le cream */
+    --input: 38 42% 84%;
+    --ring: 1 100% 71%; /* corail */
+
+    --radius: 0.75rem;
+
+    /* Sidebar corail (façon Claude) */
+    --sidebar: 1 100% 71%; /* FF6B6A */
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-muted: 6 100% 90%; /* texte secondaire sur corail */
+    --sidebar-accent: 0 0% 100%; /* pastille active (blanc) */
+  }
+
+  * {
+    @apply border-border;
+  }
   html {
     scroll-behavior: smooth;
   }
   body {
-    @apply bg-base text-ink font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased;
     background-image:
-      radial-gradient(1100px 560px at 82% -14%, rgb(var(--accent) / 0.10), transparent 60%),
-      radial-gradient(900px 480px at 6% 2%, rgb(var(--hot) / 0.07), transparent 55%);
+      radial-gradient(1100px 560px at 88% -14%, hsl(var(--primary) / 0.10), transparent 60%),
+      radial-gradient(900px 480px at 2% 4%, hsl(var(--secondary) / 0.10), transparent 55%);
     background-attachment: fixed;
   }
   ::selection {
-    background: rgb(var(--accent) / 0.28);
+    background: hsl(var(--primary) / 0.22);
   }
   a {
     @apply transition-colors;
   }
-  /* focus visible net partout */
   :focus-visible {
-    outline: 2px solid rgb(var(--accent) / 0.8);
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
     border-radius: 4px;
   }
 }
 
 @layer utilities {
-  .panel {
-    @apply bg-panel border border-line rounded-2xl shadow-panel;
-  }
-  .hairline {
-    @apply border-t border-line;
-  }
   .mono-label {
-    @apply font-mono text-[11px] uppercase tracking-[0.18em] text-faint;
+    @apply font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground;
   }
 }
 
@@ -57,16 +94,16 @@
   }
 }
 
-/* Scrollbar discrète */
+/* Scrollbar chaude discrète */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2b3140;
+  background: hsl(36 45% 68%);
   border-radius: 999px;
-  border: 2px solid #0f1117;
+  border: 2px solid hsl(var(--background));
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a4150;
+  background: hsl(36 45% 58%);
 }

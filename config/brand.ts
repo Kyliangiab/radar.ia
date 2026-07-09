@@ -13,3 +13,11 @@ export const BRAND = {
   maker: "Master Project",
   year: new Date().getFullYear(),
 };
+
+// Compte affiché en bas de la sidebar + salutation du hero.
+export const USER = {
+  name: "Kylian Giabiconi",
+  firstName: "Kylian",
+  initials: "KG",
+  plan: "Plan Max",
+};
