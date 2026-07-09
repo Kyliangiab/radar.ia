@@ -3,7 +3,8 @@
 import { Bookmark, Check } from "lucide-react";
 import type { Article, CategoryId, Density } from "@/lib/types";
 import { categoryColor, CATEGORY_MAP } from "@/lib/categories";
-import { timeAgo, hostOf } from "@/lib/format";
+import { timeAgo } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { ArticleCard } from "./ArticleCard";
 import { RelevancePill } from "./RelevancePill";
 
@@ -88,12 +89,12 @@ function CompactRow({
           onSave();
         }}
         aria-label={saved ? "Retirer des enregistrés" : "Enregistrer"}
-        className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-[8px] border transition-colors"
-        style={
+        className={cn(
+          "grid h-[26px] w-[26px] shrink-0 place-items-center rounded-[8px] border transition-colors",
           saved
-            ? { background: "#FF6B6A", borderColor: "#FF6B6A", color: "#fff" }
-            : { background: "transparent", borderColor: "rgba(38,0,0,.16)", color: "rgba(38,0,0,.5)" }
-        }
+            ? "border-primary bg-primary text-white"
+            : "border-border bg-transparent text-foreground/50 hover:text-foreground",
+        )}
       >
         {saved ? <Check size={13} /> : <Bookmark size={13} />}
       </button>

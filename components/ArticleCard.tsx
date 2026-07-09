@@ -4,6 +4,7 @@ import { Bookmark, Check } from "lucide-react";
 import type { Article, CategoryId } from "@/lib/types";
 import { categoryColor, CATEGORY_MAP } from "@/lib/categories";
 import { timeAgo } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { CoverImage } from "./CoverImage";
 import { RelevancePill } from "./RelevancePill";
 
@@ -61,12 +62,12 @@ export function ArticleCard({
               onSave();
             }}
             aria-label={saved ? "Retirer des enregistrés" : "Enregistrer"}
-            className="ml-auto grid h-[30px] w-[30px] place-items-center rounded-[9px] border transition-colors"
-            style={
+            className={cn(
+              "ml-auto grid h-[30px] w-[30px] place-items-center rounded-[9px] border transition-colors",
               saved
-                ? { background: "#FF6B6A", borderColor: "#FF6B6A", color: "#fff" }
-                : { background: "transparent", borderColor: "rgba(38,0,0,.16)", color: "rgba(38,0,0,.5)" }
-            }
+                ? "border-primary bg-primary text-white"
+                : "border-border bg-transparent text-foreground/50 hover:text-foreground",
+            )}
           >
             {saved ? <Check size={15} /> : <Bookmark size={15} />}
           </button>

@@ -5,6 +5,7 @@ import { X, Bookmark, Check, Loader2 } from "lucide-react";
 import type { Article, CategoryId, Summary } from "@/lib/types";
 import { categoryColor, CATEGORY_MAP } from "@/lib/categories";
 import { timeAgo } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { RelevancePill } from "./RelevancePill";
 
 export function ArticleDrawer({
@@ -142,12 +143,12 @@ export function ArticleDrawer({
 
         <button
           onClick={onSave}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-[12px] p-3 text-[13px] font-bold transition-colors"
-          style={
+          className={cn(
+            "mt-5 flex w-full items-center justify-center gap-2 rounded-[12px] p-3 text-[13px] font-bold transition-colors",
             saved
-              ? { background: "#FF6B6A", color: "#fff" }
-              : { background: "#fff", color: "#260000", border: "1px solid rgba(38,0,0,.2)" }
-          }
+              ? "bg-primary text-white"
+              : "border border-border bg-card text-foreground hover:bg-muted",
+          )}
         >
           {saved ? <Check size={16} /> : <Bookmark size={16} />}
           {saved ? "Enregistré dans mes fiches" : "Enregistrer dans mes fiches"}

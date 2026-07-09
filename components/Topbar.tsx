@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Search, Menu, Loader2 } from "lucide-react";
 import type { Article } from "@/lib/types";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Topbar({
   onResults,
@@ -113,15 +114,18 @@ export function Topbar({
           )}
         </div>
 
-        {/* Synchro auto */}
-        <div className="ml-auto flex items-center gap-2">
-          <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-[#4E8D6E]" />
-          <span className="hidden text-[11.5px] text-foreground/50 sm:inline">
-            Synchro auto
-            {updatedAt && (
-              <> · {updatedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</>
-            )}
-          </span>
+        {/* Thème + Synchro auto */}
+        <div className="ml-auto flex items-center gap-3">
+          <ThemeToggle />
+          <div className="hidden items-center gap-2 md:flex">
+            <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-[#4E8D6E]" />
+            <span className="text-[11.5px] text-foreground/50">
+              Synchro auto
+              {updatedAt && (
+                <> · {updatedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</>
+              )}
+            </span>
+          </div>
         </div>
       </div>
       {note && (

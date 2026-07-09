@@ -64,11 +64,14 @@ export function SourcesView() {
                   prev.map((x) => (x.id === s.id ? { ...x, active: !x.active } : x)),
                 )
               }
-              className="shrink-0 whitespace-nowrap rounded-[16px] border px-3 py-[5px] text-[11.5px] font-medium transition-colors"
+              className={cn(
+                "shrink-0 whitespace-nowrap rounded-[16px] border px-3 py-[5px] text-[11.5px] font-medium transition-colors",
+                !s.active && "border-border bg-transparent text-foreground/50",
+              )}
               style={
                 s.active
                   ? { borderColor: "#4E8D6E", background: "rgba(78,141,110,.12)", color: "#4E8D6E" }
-                  : { borderColor: "rgba(38,0,0,.18)", background: "transparent", color: "rgba(38,0,0,.5)" }
+                  : undefined
               }
             >
               {s.active ? "Actif" : "En pause"}

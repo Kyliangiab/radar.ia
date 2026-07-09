@@ -50,6 +50,46 @@
     --sidebar-accent: 0 0% 100%; /* pastille active (blanc) */
   }
 
+  /* ── Thème sombre (chaud) ── */
+  .dark {
+    --background: 20 22% 8%; /* brun-noir profond */
+    --foreground: 42 55% 96%; /* cream */
+
+    --card: 20 16% 12%;
+    --card-foreground: 42 55% 96%;
+
+    --popover: 20 16% 12%;
+    --popover-foreground: 42 55% 96%;
+
+    --primary: 1 100% 71%; /* corail (identique) */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 42 100% 50%;
+    --secondary-foreground: 20 90% 10%;
+
+    --muted: 20 12% 17%;
+    --muted-foreground: 40 22% 68%; /* texte atténué clair */
+
+    --accent: 20 14% 20%;
+    --accent-foreground: 42 55% 96%;
+
+    --brand: 1 100% 71%;
+    --hot: 8 90% 66%;
+
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 30 10% 22%;
+    --input: 30 10% 22%;
+    --ring: 1 100% 71%;
+
+    /* Sidebar : corail légèrement assombri en sombre */
+    --sidebar: 2 62% 58%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-muted: 6 60% 90%;
+    --sidebar-accent: 0 0% 100%;
+  }
+
   * {
     @apply border-border;
   }

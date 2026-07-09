@@ -58,8 +58,8 @@ export function BriefBanner({
         )}
       </div>
 
-      <div className="hidden w-[158px] flex-none items-center justify-center border-l border-border bg-[#FFF4EE] sm:flex">
-        <span className="text-[13px] font-semibold text-[#E0503F]">Ouvrir le brief →</span>
+      <div className="hidden w-[158px] flex-none items-center justify-center border-l border-border bg-primary/[0.07] sm:flex">
+        <span className="text-[13px] font-semibold text-hot">Ouvrir le brief →</span>
       </div>
     </div>
   );
