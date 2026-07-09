@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ── ACCENTS Marple (édite ces 2 lignes pour rethemer toute l'app) ── */
+  --accent: 255 103 102; /* FF6766 corail (interactif) */
+  --hot: 202 40 81; /* CA2851 crimson (signal chaud)   */
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-base text-ink font-sans antialiased;
+    background-image:
+      radial-gradient(1100px 560px at 82% -14%, rgb(var(--accent) / 0.10), transparent 60%),
+      radial-gradient(900px 480px at 6% 2%, rgb(var(--hot) / 0.07), transparent 55%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: rgb(var(--accent) / 0.28);
+  }
+  a {
+    @apply transition-colors;
+  }
+  /* focus visible net partout */
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent) / 0.8);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .panel {
+    @apply bg-panel border border-line rounded-2xl shadow-panel;
+  }
+  .hairline {
+    @apply border-t border-line;
+  }
+  .mono-label {
+    @apply font-mono text-[11px] uppercase tracking-[0.18em] text-faint;
+  }
+}
+
+/* Respect du reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Scrollbar discrète */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2b3140;
+  border-radius: 999px;
+  border: 2px solid #0f1117;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4150;
+}
