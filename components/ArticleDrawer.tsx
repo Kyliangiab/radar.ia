@@ -49,9 +49,14 @@ export function ArticleDrawer({
   const [askQ, setAskQ] = useState("");
   const [askAnswer, setAskAnswer] = useState("");
   const [askLoading, setAskLoading] = useState(false);
-  // Langue d'affichage : "vo" (original) par défaut, "fr" (traduit à la demande).
+  // Langue d'affichage : "vo" (original) par défaut, "fr" (traduit).
+  //  · frMap : champs SOURCE (titre, snippet, en langue d'origine) → français.
+  //  · voMap : champs RADAR (résumé, points, punchline, en français) → langue d'origine.
+  // Ainsi VO affiche tout dans la langue d'origine, FR tout en français, sans
+  // jamais re-traduire un texte déjà dans la bonne langue.
   const [lang, setLang] = useState<"vo" | "fr">("vo");
   const [frMap, setFrMap] = useState<Record<string, string>>({});
+  const [voMap, setVoMap] = useState<Record<string, string>>({});
   const [translating, setTranslating] = useState(false);
   // Animation entrée/sortie du tiroir.
   const [entered, setEntered] = useState(false);
@@ -105,6 +110,7 @@ export function ArticleDrawer({
     setAskAnswer("");
     setLang("vo");
     setFrMap({});
+    setVoMap({});
     setClosing(false);
     setEntered(false);
     setDragX(0);
@@ -144,25 +150,33 @@ export function ArticleDrawer({
     [related, article],
   );
 
-  // Traduction FR à la demande : traduit les chaînes manquantes quand on passe
-  // en "fr" (titre, résumé, snippet, points, pullquote) et met en cache.
+  // Traduction à la demande : en FR on traduit les champs SOURCE (titre,
+  // snippet) vers le français ; en VO on traduit les champs RADAR (résumé,
+  // points, punchline) vers la langue d'origine. Résultat mis en cache.
   useEffect(() => {
-    if (!article || lang !== "fr") return;
-    const src = [article.title, article.summary ?? "", article.snippet ?? "", ...points, pullquote]
-      .filter((s) => s && !(s in frMap));
-    const uniq = Array.from(new Set(src));
+    if (!article || isFrench(article.title)) return;
+    const isFR = lang === "fr";
+    const map = isFR ? frMap : voMap;
+    const setMap = isFR ? setFrMap : setVoMap;
+    const target = isFR ? "français" : "anglais";
+    const strings = (
+      isFR
+        ? [article.title, article.snippet ?? ""]
+        : [article.summary ?? "", ...points, pullquote]
+    ).filter((s) => s && !(s in map));
+    const uniq = Array.from(new Set(strings));
     if (!uniq.length) return;
     let cancelled = false;
     setTranslating(true);
     fetch("/api/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texts: uniq }),
+      body: JSON.stringify({ texts: uniq, target }),
     })
       .then((r) => r.json())
       .then((d) => {
         if (cancelled || !Array.isArray(d.texts) || d.texts.length !== uniq.length) return;
-        setFrMap((m) => {
+        setMap((m) => {
           const n = { ...m };
           uniq.forEach((s, i) => (n[s] = d.texts[i]));
           return n;
@@ -181,8 +195,10 @@ export function ArticleDrawer({
   const a = article;
   const origIsFrench = isFrench(a.title);
   const origLangLabel = origIsFrench ? "Français" : "English";
-  // Affichage : renvoie la traduction FR si dispo, sinon l'original.
-  const L = (s: string) => (lang === "fr" ? frMap[s] || s : s);
+  // Affichage : FR → map source→fr (les champs Radar déjà en FR passent tels
+  // quels) ; VO → map radar→origine (le titre/snippet déjà en VO passent tels
+  // quels). Chaque map ne contient que les champs à traduire.
+  const L = (s: string) => (lang === "fr" ? frMap[s] ?? s : voMap[s] ?? s);
   const cat: CategoryId = (CATEGORY_MAP[a.category] ? a.category : "tech") as CategoryId;
   const color = categoryColor(cat);
   const label = CATEGORY_MAP[cat]?.label ?? "Tech";
@@ -311,6 +327,7 @@ export function ArticleDrawer({
               <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-foreground/50">
                 <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
                 Titre original · {origLangLabel}
+                {translating && <Loader2 size={10} className="animate-spin" />}
               </span>
             ))}
         </div>
