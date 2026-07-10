@@ -28,7 +28,12 @@ export function AuthScreen() {
   useEffect(() => setEdition(editionInfo().label), []);
 
   const isRegister = mode === "register";
-  const origin = typeof window !== "undefined" ? window.location.origin : undefined;
+  // URL de redirection d'auth : URL canonique de prod si définie (Vercel),
+  // sinon l'origine courante (utile en dev local). Évite que les liens
+  // magiques / OAuth demandés depuis localhost renvoient vers localhost.
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : undefined);
 
   function switchMode(m: Mode) {
     setMode(m);
