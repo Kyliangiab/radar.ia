@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Article, CategoryId, FluxView } from "@/lib/types";
 import { Sidebar, type AccountUser } from "./Sidebar";
 import { Topbar } from "./Topbar";
+import { RightRail } from "./RightRail";
 
 export function AppShell({
   flux,
@@ -44,7 +45,7 @@ export function AppShell({
   );
 
   return (
-    <div className="h-screen lg:grid lg:grid-cols-[256px_minmax(0,1fr)]">
+    <div className="h-screen lg:grid lg:grid-cols-[256px_minmax(0,1fr)] xl:grid-cols-[256px_minmax(0,1fr)_340px]">
       {/* Sidebar desktop */}
       <aside className="hidden h-screen lg:block">{sidebar}</aside>
 
@@ -69,6 +70,11 @@ export function AppShell({
         />
         <main className="flex-1 overflow-y-auto px-4 pb-11 pt-7 sm:px-9">{children}</main>
       </div>
+
+      {/* Rail droit "En direct" (xl+) */}
+      <aside className="hidden h-screen xl:block">
+        <RightRail flux={flux} />
+      </aside>
     </div>
   );
 }
