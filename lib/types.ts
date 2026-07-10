@@ -27,7 +27,8 @@ export interface Article {
   snippet?: string;
   image?: string;
   heat: number; // 0..100 (signal relatif)
-  summary?: string; // résumé IA (si déjà stocké)
+  summary?: string; // résumé IA en français (si déjà stocké)
+  summaryOrig?: string; // résumé IA en langue d'origine (pour le mode VO)
   whyItMatters?: string; // "pourquoi c'est important" IA
 }
 

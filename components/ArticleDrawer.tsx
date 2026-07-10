@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { RelevancePill } from "./RelevancePill";
 
 type Mode = "court" | "resume";
+type Extra = { points: string[]; pullquote: string };
 
 function sentences(txt: string): string[] {
   return (txt || "")
@@ -43,21 +44,18 @@ export function ArticleDrawer({
   onSave: () => void;
 }) {
   const [mode, setMode] = useState<Mode>("resume");
-  const [points, setPoints] = useState<string[]>([]);
-  const [pullquote, setPullquote] = useState<string>("");
   const [askOpen, setAskOpen] = useState(false);
   const [askQ, setAskQ] = useState("");
   const [askAnswer, setAskAnswer] = useState("");
   const [askLoading, setAskLoading] = useState(false);
-  // Langue d'affichage : "vo" (original) par défaut, "fr" (traduit).
-  //  · frMap : champs SOURCE (titre, snippet, en langue d'origine) → français.
-  //  · voMap : champs RADAR (résumé, points, punchline, en français) → langue d'origine.
-  // Ainsi VO affiche tout dans la langue d'origine, FR tout en français, sans
-  // jamais re-traduire un texte déjà dans la bonne langue.
-  const [lang, setLang] = useState<"vo" | "fr">("fr");
+  // Langue : "vo" (langue d'origine) par défaut, "fr" à la demande. Le résumé
+  // est stocké dans les 2 langues (summary_orig / summary) → bascule instantanée.
+  // On ne traduit à la volée que le titre en FR (frMap) ; les points/punchline
+  // sont générés dans la bonne langue (extra, via /api/summarize).
+  const [lang, setLang] = useState<"vo" | "fr">("vo");
   const [frMap, setFrMap] = useState<Record<string, string>>({});
-  const [voMap, setVoMap] = useState<Record<string, string>>({});
   const [translating, setTranslating] = useState(false);
+  const [extra, setExtra] = useState<{ en?: Extra; fr?: Extra }>({});
   // Animation entrée/sortie du tiroir.
   const [entered, setEntered] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -86,7 +84,7 @@ export function ArticleDrawer({
         touch.current.swiping = true;
         setDragging(true);
       } else if (Math.abs(dy) > 10) {
-        touch.current = null; // scroll vertical → on abandonne le swipe
+        touch.current = null;
         return;
       } else return;
     }
@@ -101,42 +99,24 @@ export function ArticleDrawer({
     touch.current = null;
   }
 
-  // Fermeture au clavier + reset à chaque article + animation d'entrée.
+  // Reset + animation d'entrée + Échap, à chaque article.
   useEffect(() => {
     if (!article) return;
     setMode("resume");
     setAskOpen(false);
     setAskQ("");
     setAskAnswer("");
-    setLang("fr");
+    setLang("vo");
     setFrMap({});
-    setVoMap({});
+    setExtra({});
     setClosing(false);
     setEntered(false);
     setDragX(0);
     setDragging(false);
     const raf = requestAnimationFrame(() => setEntered(true));
-    // Points/pullquote : dérivés du résumé/snippet, puis enrichis via Groq si dispo.
-    const base = article.summary || article.snippet || "";
-    setPoints(sentences(base).slice(0, 3));
-    setPullquote(article.whyItMatters || sentences(base)[0] || "");
-    let cancelled = false;
-    fetch("/api/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: article.title, snippet: article.snippet ?? "", source: article.source }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled || !d) return;
-        if (Array.isArray(d.points) && d.points.length) setPoints(d.points.slice(0, 3));
-        if (d.pullquote) setPullquote(d.pullquote);
-      })
-      .catch(() => {});
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && handleClose();
     window.addEventListener("keydown", onKey);
     return () => {
-      cancelled = true;
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
     };
@@ -150,20 +130,14 @@ export function ArticleDrawer({
     [related, article],
   );
 
-  // Traduction à la demande : en FR on traduit les champs SOURCE (titre,
-  // snippet) vers le français ; en VO on traduit les champs RADAR (résumé,
-  // points, punchline) vers la langue d'origine. Résultat mis en cache.
+  const langKey: "en" | "fr" = lang === "vo" ? "en" : "fr";
+
+  // Traduction du TITRE en FR (le résumé est déjà stocké dans les 2 langues).
   useEffect(() => {
-    if (!article || isFrench(article.title)) return;
-    const isFR = lang === "fr";
-    const map = isFR ? frMap : voMap;
-    const setMap = isFR ? setFrMap : setVoMap;
-    const target = isFR ? "français" : "anglais";
-    const strings = (
-      isFR
-        ? [article.title, ...(mode === "court" ? [article.snippet ?? ""] : [])]
-        : [article.summary ?? "", ...points, pullquote]
-    ).filter((s) => s && !(s in map));
+    if (!article || lang !== "fr" || isFrench(article.title)) return;
+    const strings = [article.title, ...(mode === "court" ? [article.snippet ?? ""] : [])].filter(
+      (s) => s && !(s in frMap),
+    );
     const uniq = Array.from(new Set(strings));
     if (!uniq.length) return;
     let cancelled = false;
@@ -171,12 +145,12 @@ export function ArticleDrawer({
     fetch("/api/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texts: uniq, target }),
+      body: JSON.stringify({ texts: uniq, target: "français" }),
     })
       .then((r) => r.json())
       .then((d) => {
         if (cancelled || !Array.isArray(d.texts) || d.texts.length !== uniq.length) return;
-        setMap((m) => {
+        setFrMap((m) => {
           const n = { ...m };
           uniq.forEach((s, i) => (n[s] = d.texts[i]));
           return n;
@@ -189,21 +163,61 @@ export function ArticleDrawer({
     return () => {
       cancelled = true;
     };
-  }, [article, lang, mode, points, pullquote]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [article, lang, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Points + punchline générés dans la bonne langue (anglais en VO, français
+  // en FR), directement à partir de la source → pas de re-traduction. Cache/lang.
+  useEffect(() => {
+    if (!article || extra[langKey]) return;
+    let cancelled = false;
+    fetch("/api/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: article.title,
+        snippet: article.snippet ?? "",
+        source: article.source,
+        lang: langKey,
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled || !d) return;
+        if (Array.isArray(d.points) || d.pullquote) {
+          setExtra((e) => ({
+            ...e,
+            [langKey]: { points: (d.points ?? []).slice(0, 3), pullquote: d.pullquote ?? "" },
+          }));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [article, langKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!article) return null;
   const a = article;
   const origIsFrench = isFrench(a.title);
   const origLangLabel = origIsFrench ? "Français" : "English";
-  // Affichage : FR → map source→fr (les champs Radar déjà en FR passent tels
-  // quels) ; VO → map radar→origine (le titre/snippet déjà en VO passent tels
-  // quels). Chaque map ne contient que les champs à traduire.
-  const L = (s: string) => (lang === "fr" ? frMap[s] ?? s : voMap[s] ?? s);
+
+  // Affichage par langue — résumé stocké dans les 2 langues (instantané).
+  const displayTitle = lang === "fr" ? frMap[a.title] ?? a.title : a.title;
+  const summaryVo = a.summaryOrig || a.summary || "";
+  const summaryFr = a.summary || a.summaryOrig || "";
+  const displaySummary = lang === "vo" ? summaryVo : summaryFr;
+  const courtOrig = a.snippet || "";
+  const displayCourt = lang === "fr" ? frMap[courtOrig] ?? courtOrig : courtOrig;
+  const body = mode === "court" ? displayCourt : displaySummary;
+  const ex = extra[langKey];
+  const displayPoints = ex?.points?.length ? ex.points : sentences(displaySummary).slice(0, 3);
+  const displayPullquote =
+    ex?.pullquote || (lang === "fr" ? a.whyItMatters ?? "" : "") || sentences(displaySummary)[0] || "";
+
   const cat: CategoryId = (CATEGORY_MAP[a.category] ? a.category : "tech") as CategoryId;
   const color = categoryColor(cat);
   const label = CATEGORY_MAP[cat]?.label ?? "Tech";
   const host = hostOf(a.url);
-  const body = mode === "court" ? a.snippet || a.summary || "" : a.summary || a.snippet || "";
 
   async function ask(q: string) {
     const query = q.trim();
@@ -313,7 +327,7 @@ export function ArticleDrawer({
           )}
         </div>
         <h2 className="mb-2.5 text-[21px] font-bold leading-[1.25] tracking-[-0.012em] text-foreground">
-          {L(a.title)}
+          {displayTitle}
         </h2>
         <div className="mb-[18px]">
           {!origIsFrench &&
@@ -327,7 +341,6 @@ export function ArticleDrawer({
               <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-foreground/50">
                 <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
                 Titre original · {origLangLabel}
-                {translating && <Loader2 size={10} className="animate-spin" />}
               </span>
             ))}
         </div>
@@ -396,37 +409,32 @@ export function ArticleDrawer({
             ))}
           </div>
         </div>
-        <p
-          className={
-            "mb-[18px] text-[14px] leading-[1.65] text-foreground transition-opacity" +
-            (lang === "vo" && translating ? " opacity-40" : "")
-          }
-        >
-          {L(body) || "Pas de résumé disponible — ouvre la source pour le détail."}
+        <p className="mb-[18px] text-[14px] leading-[1.65] text-foreground">
+          {body || "Pas de résumé disponible — ouvre la source pour le détail."}
         </p>
 
         {/* 3 points */}
-        {points.length > 0 && (
+        {displayPoints.length > 0 && (
           <>
             <div className="mb-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-foreground/40">
-              {points.length} points à retenir
+              {displayPoints.length} points à retenir
             </div>
-            {points.map((p, i) => (
+            {displayPoints.map((p, i) => (
               <div key={i} className="mb-2.5 flex gap-2.5 text-[13.5px] leading-[1.5] text-foreground/85">
                 <span className="font-bold text-primary">→</span>
-                <span>{L(p)}</span>
+                <span>{p}</span>
               </div>
             ))}
           </>
         )}
 
         {/* À ressortir en réunion */}
-        {pullquote && (
+        {displayPullquote && (
           <div className="mt-[18px] rounded-[13px] bg-[#1A0A08] p-[18px_20px]">
             <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
               À ressortir en réunion
             </div>
-            <div className="text-[14.5px] italic leading-[1.45] text-[#FFF7EA]">« {L(pullquote)} »</div>
+            <div className="text-[14.5px] italic leading-[1.45] text-[#FFF7EA]">« {displayPullquote} »</div>
           </div>
         )}
 

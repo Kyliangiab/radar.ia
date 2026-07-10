@@ -101,6 +101,7 @@ async function main() {
         image: a.image ?? null,
         heat: a.heat,
         summary: e.summary,
+        summary_orig: e.summaryOrig,
         why_it_matters: e.whyItMatters,
         fetched_at: new Date().toISOString(),
       };
