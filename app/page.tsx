@@ -15,6 +15,7 @@ import { AuthScreen } from "@/components/AuthScreen";
 import type { AccountUser } from "@/components/Sidebar";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { listSaved, addSaved, removeSaved } from "@/lib/saved";
+import { listReads, addRead } from "@/lib/reads";
 import { fetchStats, type StatsResp } from "@/lib/stats";
 import { buildNotifications } from "@/lib/notifications";
 import type { Session } from "@supabase/supabase-js";
@@ -38,6 +39,11 @@ const TITLES: Record<string, string> = {
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  // Ref de session pour les callbacks stables (évite de recréer openArticleId).
+  const sessionRef = useRef<Session | null>(null);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const [flux, setFlux] = useState<FluxView>("fil");
   const [domain, setDomain] = useState<CategoryId>("all");
@@ -46,11 +52,16 @@ export default function Home() {
   const [read, setRead] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
 
-  // Ouvre le drawer + marque l'article comme lu (dimming).
-  const openArticleId = useCallback((id: string) => {
-    setOpenId(id);
-    setRead((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
-  }, []);
+  // Ouvre le drawer + marque l'article comme lu (dimming), persisté en base.
+  const openArticleId = useCallback(
+    (id: string) => {
+      setOpenId(id);
+      setRead((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+      const uid = sessionRef.current?.user.id;
+      if (uid) addRead(uid, id);
+    },
+    [],
+  );
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,9 +146,11 @@ export default function Home() {
   useEffect(() => {
     if (!session) {
       setSaved(new Set());
+      setRead(new Set());
       return;
     }
     listSaved().then(setSaved);
+    listReads().then(setRead);
   }, [session]);
   const toggleSave = useCallback(
     (id: string) => {
