@@ -19,6 +19,16 @@ function sentences(txt: string): string[] {
     .filter((s) => s.length > 12);
 }
 
+// Heuristique légère : le texte est-il déjà en français ?
+function isFrench(s: string): boolean {
+  if (!s) return false;
+  const t = " " + s.toLowerCase() + " ";
+  const words = [" le ", " la ", " les ", " des ", " une ", " un ", " et ", " est ", " pour ", " avec ", " dans ", " sur ", " par ", " que ", " qui ", " aux ", " du "];
+  let hits = /[éèêàçùâîô]/.test(s) ? 1 : 0;
+  for (const w of words) if (t.includes(w)) hits++;
+  return hits >= 2;
+}
+
 export function ArticleDrawer({
   article,
   saved,
@@ -39,6 +49,10 @@ export function ArticleDrawer({
   const [askQ, setAskQ] = useState("");
   const [askAnswer, setAskAnswer] = useState("");
   const [askLoading, setAskLoading] = useState(false);
+  // Langue d'affichage : "vo" (original) par défaut, "fr" (traduit à la demande).
+  const [lang, setLang] = useState<"vo" | "fr">("vo");
+  const [frMap, setFrMap] = useState<Record<string, string>>({});
+  const [translating, setTranslating] = useState(false);
 
   // Fermeture au clavier + reset à chaque article.
   useEffect(() => {
@@ -47,6 +61,8 @@ export function ArticleDrawer({
     setAskOpen(false);
     setAskQ("");
     setAskAnswer("");
+    setLang("vo");
+    setFrMap({});
     // Points/pullquote : dérivés du résumé/snippet, puis enrichis via Groq si dispo.
     const base = article.summary || article.snippet || "";
     setPoints(sentences(base).slice(0, 3));
@@ -80,8 +96,44 @@ export function ArticleDrawer({
     [related, article],
   );
 
+  // Traduction FR à la demande : traduit les chaînes manquantes quand on passe
+  // en "fr" (titre, résumé, snippet, points, pullquote) et met en cache.
+  useEffect(() => {
+    if (!article || lang !== "fr") return;
+    const src = [article.title, article.summary ?? "", article.snippet ?? "", ...points, pullquote]
+      .filter((s) => s && !(s in frMap));
+    const uniq = Array.from(new Set(src));
+    if (!uniq.length) return;
+    let cancelled = false;
+    setTranslating(true);
+    fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texts: uniq }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled || !Array.isArray(d.texts) || d.texts.length !== uniq.length) return;
+        setFrMap((m) => {
+          const n = { ...m };
+          uniq.forEach((s, i) => (n[s] = d.texts[i]));
+          return n;
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setTranslating(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [article, lang, points, pullquote]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!article) return null;
   const a = article;
+  const origIsFrench = isFrench(a.title);
+  // Affichage : renvoie la traduction FR si dispo, sinon l'original.
+  const L = (s: string) => (lang === "fr" ? frMap[s] || s : s);
   const cat: CategoryId = (CATEGORY_MAP[a.category] ? a.category : "tech") as CategoryId;
   const color = categoryColor(cat);
   const label = CATEGORY_MAP[cat]?.label ?? "Tech";
@@ -137,7 +189,7 @@ export function ArticleDrawer({
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-foreground/32 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-[#1A0A08]/60 backdrop-blur-[3px]" onClick={onClose} aria-hidden="true" />
       <aside className="absolute right-0 top-0 h-full w-full max-w-[452px] overflow-y-auto bg-background p-[22px_26px_32px] shadow-[-24px_0_48px_-18px_rgba(26,10,8,.35)]">
         {/* Header */}
         <div className="mb-4 flex items-center">
@@ -157,13 +209,45 @@ export function ArticleDrawer({
           </button>
         </div>
 
-        <div className="mb-2 text-[11.5px] text-foreground/55">
-          <b className="font-semibold text-foreground">{a.source}</b> · {timeAgo(a.publishedAt)}
-          {a.points > 0 && <> · {a.points} pts</>}
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="text-[11.5px] text-foreground/55">
+            <b className="font-semibold text-foreground">{a.source}</b> · {timeAgo(a.publishedAt)}
+            {a.points > 0 && <> · {a.points} pts</>}
+          </div>
+          {!origIsFrench && (
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="hidden rounded-full bg-foreground/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-foreground/50 sm:inline">
+                Article en anglais
+              </span>
+              <div className="flex gap-0.5 rounded-full bg-foreground/[0.06] p-[3px]">
+                {(["vo", "fr"] as const).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setLang(l)}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] transition-colors",
+                      lang === l ? "bg-primary text-white" : "text-foreground/55 hover:text-foreground",
+                    )}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-        <h2 className="mb-[18px] text-[21px] font-bold leading-[1.25] tracking-[-0.012em] text-foreground">
-          {a.title}
+        <h2 className="mb-2.5 text-[21px] font-bold leading-[1.25] tracking-[-0.012em] text-foreground">
+          {L(a.title)}
         </h2>
+        <div className="mb-[18px]">
+          {!origIsFrench && lang === "fr" && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-foreground/45">
+              <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
+              Titre original · Anglais
+              {translating && <Loader2 size={10} className="animate-spin" />}
+            </span>
+          )}
+        </div>
 
         {/* CTA Voir la source */}
         <a
@@ -230,7 +314,7 @@ export function ArticleDrawer({
           </div>
         </div>
         <p className="mb-[18px] text-[14px] leading-[1.65] text-foreground">
-          {body || "Pas de résumé disponible — ouvre la source pour le détail."}
+          {L(body) || "Pas de résumé disponible — ouvre la source pour le détail."}
         </p>
 
         {/* 3 points */}
@@ -242,7 +326,7 @@ export function ArticleDrawer({
             {points.map((p, i) => (
               <div key={i} className="mb-2.5 flex gap-2.5 text-[13.5px] leading-[1.5] text-foreground/85">
                 <span className="font-bold text-primary">→</span>
-                <span>{p}</span>
+                <span>{L(p)}</span>
               </div>
             ))}
           </>
@@ -254,7 +338,7 @@ export function ArticleDrawer({
             <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
               À ressortir en réunion
             </div>
-            <div className="text-[14.5px] italic leading-[1.45] text-[#FFF7EA]">« {pullquote} »</div>
+            <div className="text-[14.5px] italic leading-[1.45] text-[#FFF7EA]">« {L(pullquote)} »</div>
           </div>
         )}
 
