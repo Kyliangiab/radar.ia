@@ -147,6 +147,7 @@ export function BriefView({
             </div>
           </div>
 
+          <div className="mx-auto max-w-[760px]">
           <div className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.07em] text-foreground/40">
             3 choses à retenir
           </div>
@@ -181,6 +182,7 @@ export function BriefView({
               </div>
             </div>
           ))}
+          </div>
 
           {/* Les chiffres du jour */}
           <div className="mt-7 rounded-[16px] bg-[#1A0A08] p-[28px_32px]">
