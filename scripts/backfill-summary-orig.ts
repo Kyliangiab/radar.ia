@@ -39,7 +39,7 @@ async function main() {
   const { data } = await sb
     .from("articles")
     .select("id,source,title,snippet,category,heat")
-    .is("points", null)
+    .is("key_points", null)
     .order("heat", { ascending: false })
     .limit(2000);
   const rows = (data ?? []) as Row[];
