@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, Menu, Loader2, Bell } from "lucide-react";
+import { Search, Menu, Loader2 } from "lucide-react";
 import type { Article } from "@/lib/types";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -133,7 +133,7 @@ export function Topbar({
         <div className="ml-auto flex items-center gap-2.5">
           <ThemeToggle />
 
-          <div className="hidden items-center gap-2 rounded-full bg-[#4E8D6E]/14 px-3 py-[7px] md:flex">
+          <div className="hidden items-center gap-2 rounded-full bg-[#4E8D6E]/[0.14] px-[14px] py-[7px] md:flex">
             <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-[#4E8D6E]" />
             <span className="whitespace-nowrap text-[11.5px] font-semibold text-[#2F6549] dark:text-[#5FAE8A]">
               Synchro{now && ` · ${now}`}
@@ -144,10 +144,12 @@ export function Topbar({
             <button
               onClick={() => setNotifOpen((v) => !v)}
               aria-label="Notifications"
-              className="relative grid h-9 w-9 place-items-center rounded-[10px] border border-border bg-card text-foreground/70 transition-colors hover:text-foreground"
+              className="grid h-9 w-9 place-items-center rounded-[10px] border border-border bg-card transition-colors hover:bg-muted"
             >
-              <Bell size={16} />
-              <span className="absolute right-1.5 top-1.5 h-[6px] w-[6px] rounded-full bg-primary" />
+              <span className="relative text-[16px] leading-none">
+                🔔
+                <span className="absolute -right-1.5 -top-1 h-[6px] w-[6px] rounded-full bg-primary ring-2 ring-card" />
+              </span>
             </button>
             {notifOpen && (
               <>
