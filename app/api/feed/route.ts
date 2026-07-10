@@ -46,6 +46,28 @@ export async function GET(request: Request) {
 
   const supabase = getSupabase();
 
+  // SONDE debug temporaire : compte sur la base que CE runtime interroge.
+  if (supabase && searchParams.get("_probe")) {
+    const cnt = async (b: unknown) => (await (b as Promise<{ count: number | null }>)).count;
+    const total = await cnt(supabase.from("articles").select("id", { count: "exact", head: true }));
+    const persos = await cnt(
+      supabase.from("articles").select("id", { count: "exact", head: true }).not("user_id", "is", null),
+    );
+    const eqUser = validUid
+      ? await cnt(supabase.from("articles").select("id", { count: "exact", head: true }).eq("user_id", validUid))
+      : null;
+    return NextResponse.json({
+      _probe: {
+        host: (process.env.SUPABASE_URL || "").replace(/^https?:\/\//, "").split(".")[0],
+        keyTail: (process.env.SUPABASE_SERVICE_ROLE_KEY || "").slice(-6),
+        total,
+        persos,
+        eqUser,
+        validUid,
+      },
+    });
+  }
+
   // Source de vérité : la base (restitution du pipeline)
   if (supabase) {
     try {
