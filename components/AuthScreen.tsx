@@ -99,10 +99,9 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#EFE5D2] p-4 sm:p-6 font-sans">
-      <div className="flex w-full max-w-[1040px] overflow-hidden rounded-[20px] bg-[#FFF7EA] shadow-[0_30px_80px_-30px_rgba(26,10,8,.35)]">
+    <div className="flex min-h-screen w-full bg-[#FFF7EA] font-sans">
         {/* ── Panneau éditorial (gauche) ── */}
-        <div className="relative hidden w-[460px] flex-none flex-col overflow-hidden bg-[#1A0A08] p-[44px_44px_38px] text-[#FFF7EA] lg:flex">
+        <div className="relative hidden w-[46%] flex-none flex-col overflow-hidden bg-[#1A0A08] p-[56px_60px_52px] text-[#FFF7EA] lg:flex">
           <div className="pointer-events-none absolute -right-24 -top-24 h-[400px] w-[400px] rounded-full" style={{ background: "radial-gradient(circle,rgba(255,90,71,.14),transparent 65%)" }} />
 
           <div className="relative flex items-center gap-3">
@@ -313,7 +312,6 @@ export function AuthScreen() {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }
