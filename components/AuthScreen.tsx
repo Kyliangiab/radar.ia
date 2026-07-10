@@ -56,9 +56,12 @@ export function AuthScreen() {
   const isRegister = mode === "register";
   // URL de redirection d'auth : URL canonique de prod si définie (Vercel),
   // sinon l'origine courante (dev local). Évite le renvoi vers localhost.
-  const origin =
+  // On renvoie vers /app (l'appli vit sous /app ; la racine = landing publique).
+  const base = (
     process.env.NEXT_PUBLIC_SITE_URL ||
-    (typeof window !== "undefined" ? window.location.origin : undefined);
+    (typeof window !== "undefined" ? window.location.origin : "")
+  ).replace(/\/$/, "");
+  const origin = base ? `${base}/app` : undefined;
 
   function switchMode(m: Mode) {
     setMode(m);
