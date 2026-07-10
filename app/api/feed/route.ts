@@ -46,55 +46,25 @@ export async function GET(request: Request) {
 
   const supabase = getSupabase();
 
-  // SONDE debug temporaire : compte sur la base que CE runtime interroge.
-  if (supabase && searchParams.get("_probe")) {
-    const cnt = async (b: unknown) => (await (b as Promise<{ count: number | null }>)).count;
-    const total = await cnt(supabase.from("articles").select("id", { count: "exact", head: true }));
-    const persos = await cnt(
-      supabase.from("articles").select("id", { count: "exact", head: true }).not("user_id", "is", null),
-    );
-    const eqUser = validUid
-      ? await cnt(supabase.from("articles").select("id", { count: "exact", head: true }).eq("user_id", validUid))
-      : null;
-    return NextResponse.json({
-      _probe: {
-        host: (process.env.SUPABASE_URL || "").replace(/^https?:\/\//, "").split(".")[0],
-        keyTail: (process.env.SUPABASE_SERVICE_ROLE_KEY || "").slice(-6),
-        total,
-        persos,
-        eqUser,
-        validUid,
-      },
-    });
-  }
-
-  // Source de vérité : la base (restitution du pipeline)
+  // Source de vérité : la base (restitution du pipeline).
+  // NB : on fait DEUX requêtes (corpus global user_id null + articles perso du
+  // user) plutôt qu'un `.or(user_id.is.null,user_id.eq.…)` — ce dernier ne
+  // remontait pas les persos en prod (parsing PostgREST capricieux sur l'UUID).
   if (supabase) {
     try {
-      // Tri/filtre côté client (toggle Récents/Pertinence) → on renvoie large,
-      // ordonné par date. Pas de re-rank ni de slice ici.
-      let q = supabase.from("articles").select("*").order("published_at", { ascending: false }).limit(300);
-      // corpus global (user_id null) + sources perso du user
-      q = validUid ? q.or(`user_id.is.null,user_id.eq.${validUid}`) : q.is("user_id", null);
-      if (category !== "all") q = q.eq("category", category);
-      const { data, error } = await q;
-      if (!error && data && data.length > 0) {
-        return NextResponse.json({
-          category,
-          source: "db",
-          count: data.length,
-          _debug: {
-            uid,
-            validUid,
-            supaHost: (process.env.SUPABASE_URL || "").replace(/^https?:\/\//, "").split(".")[0],
-            err: error ? String((error as { message?: string }).message) : null,
-          },
-          articles: data.map(mapRow),
-        });
+      const base = () => {
+        let qq = supabase.from("articles").select("*").order("published_at", { ascending: false });
+        if (category !== "all") qq = qq.eq("category", category);
+        return qq;
+      };
+      const globalRes = await base().is("user_id", null).limit(300);
+      let rows = globalRes.data ?? [];
+      if (validUid) {
+        const userRes = await base().eq("user_id", validUid).limit(100);
+        if (userRes.data?.length) rows = [...userRes.data, ...rows];
       }
-      // debug : si la requête DB a échoué / renvoyé 0
-      if (searchParams.get("_dbg")) {
-        return NextResponse.json({ _debug: { uid, validUid, dbError: error ? (error as { message?: string }).message : null, len: data?.length ?? null } });
+      if (!globalRes.error && rows.length > 0) {
+        return NextResponse.json({ category, source: "db", count: rows.length, articles: rows.map(mapRow) });
       }
     } catch {
       /* bascule en live ci-dessous */
