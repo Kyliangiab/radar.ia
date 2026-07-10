@@ -13,10 +13,49 @@ type Row = { day: string; topic: string; count: number };
 // `hasHistory` = faux tant qu'il n'y a pas ≥ 2 jours de snapshots → le client
 // retombe alors sur l'illustratif.
 export async function GET() {
-  const empty = { hasHistory: false, overallVariation: 0, series: [] as { day: string; count: number }[], topics: [] as unknown[] };
+  const base = { hasHistory: false, overallVariation: 0, series: [] as { day: string; count: number }[], topics: [] as unknown[] };
 
   const supabase = getSupabase();
-  if (!supabase) return NextResponse.json(empty);
+  if (!supabase) return NextResponse.json({ ...base, articleCount: 0, headline: null, panels: [] });
+
+  // ── Données de l'écran d'auth (toujours calculées, publiques) ──
+  //  · articleCount : total réel d'articles analysés
+  //  · headline     : dernier titre analysé (hero)
+  //  · panels       : 3 domaines les plus actifs + dernier titre de chacun
+  const { count: articleCount } = await supabase
+    .from("articles")
+    .select("id", { count: "exact", head: true });
+  const { data: recent } = await supabase
+    .from("articles")
+    .select("title,category,heat,published_at")
+    .order("heat", { ascending: false })
+    .order("published_at", { ascending: false })
+    .limit(80);
+  const rec = (recent ?? []) as { title: string; category: string }[];
+  const headline = rec[0]?.title ?? null;
+  const byCat = new Map<string, { count: number; top: string }>();
+  for (const a of rec) {
+    const c = a.category || "autre";
+    const e = byCat.get(c);
+    if (e) {
+      e.count++;
+      // Garde le meilleur titre du domaine ≠ hero (évite la redite).
+      if ((!e.top || e.top === headline) && a.title !== headline) e.top = a.title;
+    } else {
+      byCat.set(c, { count: 1, top: a.title });
+    }
+  }
+  const panels = Array.from(byCat.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 3)
+    .map(([cat, v], i) => ({
+      n: String(i + 1).padStart(2, "0"),
+      topic: cat,
+      label: CATEGORY_MAP[cat as CategoryId]?.label ?? cat,
+      color: CATEGORY_MAP[cat as CategoryId]?.color ?? "#FF5A47",
+      desc: v.top && v.top !== headline ? v.top : `${v.count} article${v.count > 1 ? "s" : ""} cette semaine`,
+    }));
+  const authData = { articleCount: articleCount ?? 0, headline, panels };
 
   // 14 jours suffisent pour "cette semaine vs semaine passée".
   const since = new Date();
@@ -31,7 +70,7 @@ export async function GET() {
 
   const rows = (data ?? []) as Row[];
   const days = Array.from(new Set(rows.map((r) => r.day))).sort();
-  if (days.length < 2) return NextResponse.json(empty);
+  if (days.length < 2) return NextResponse.json({ ...base, ...authData });
 
   // Bornes : 7 derniers jours vs 7 précédents (par date, pas par index).
   const cutoff = new Date();
@@ -74,5 +113,6 @@ export async function GET() {
     overallVariation: variation(totalLast, totalPrev),
     series,
     topics,
+    ...authData,
   });
 }

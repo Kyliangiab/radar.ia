@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { BRAND } from "@/config/brand";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { editionInfo } from "@/lib/edition";
+import { fetchStats, type StatsResp } from "@/lib/stats";
 
 type Mode = "login" | "register";
 type Busy = null | "google" | "email" | "magic";
@@ -23,8 +24,12 @@ export function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [edition, setEdition] = useState("");
+  const [stats, setStats] = useState<StatsResp | null>(null);
 
-  useEffect(() => setEdition(editionInfo().label), []);
+  useEffect(() => {
+    setEdition(editionInfo().label);
+    fetchStats().then(setStats);
+  }, []);
 
   const isRegister = mode === "register";
   // URL de redirection d'auth : URL canonique de prod si définie (Vercel),
@@ -100,11 +105,17 @@ export function AuthScreen() {
     else setInfo("Email de réinitialisation envoyé.");
   }
 
-  const SIGNALS = [
-    { n: "01", label: "Data / IA", color: "#8E5FB8", desc: "Petits modèles à < 3 B" },
-    { n: "02", label: "Tech", color: "#C8663A", desc: "WebGPU stabilise en prod" },
-    { n: "03", label: "Business", color: "#4E8D6E", desc: "Fundraise Series A ↑ 22 %" },
+  // Repli si l'API stats n'a pas encore répondu (avant chargement).
+  const FALLBACK_PANELS = [
+    { n: "01", topic: "data", label: "Data / IA", color: "#8E5FB8", desc: "Petits modèles à < 3 B" },
+    { n: "02", topic: "tech", label: "Tech", color: "#C8663A", desc: "WebGPU stabilise en prod" },
+    { n: "03", topic: "biz", label: "Business", color: "#4E8D6E", desc: "Fundraise Series A ↑ 22 %" },
   ];
+
+  // Contenu dynamique du panneau éditorial (vraies données).
+  const panels = stats?.panels?.length ? stats.panels : FALLBACK_PANELS;
+  const headline = stats?.headline || "Les modèles < 3 B rattrapent GPT-4.";
+  const articleCount = stats?.articleCount;
 
   return (
     <>
@@ -140,17 +151,17 @@ export function AuthScreen() {
               Ce matin dans le brief
             </div>
 
-            <h1 className="mb-7 text-[clamp(48px,4.5vw,72px)] font-bold leading-[0.98] tracking-[-0.035em] [text-wrap:balance]">
-              {"Les modèles < 3 B rattrapent GPT-4."}
+            <h1 className="mb-7 text-[clamp(40px,4vw,68px)] font-bold leading-[1] tracking-[-0.035em] [text-wrap:balance]">
+              {headline}
             </h1>
 
             <p className="mb-11 max-w-[520px] text-[clamp(15px,1.15vw,17px)] leading-[1.55] text-[#FFF7EA]/[0.66]">
-              Sur 12 benchmarks, les petits modèles fine-tunés talonnent — à coût d'inférence divisé
-              par 40. Deux autres signaux t'attendent dans ton brief.
+              Radar lit, dédoublonne et résume les sources en continu — tu ouvres, tu as le signal du
+              jour en deux minutes.
             </p>
 
             <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-[#FFF7EA]/[0.12] bg-[#FFF7EA]/[0.12]">
-              {SIGNALS.map((s) => (
+              {panels.map((s) => (
                 <div key={s.n} className="bg-[#1A0A08] p-[22px_20px]">
                   <div className="mb-2 flex items-baseline gap-2.5">
                     <span className="text-[28px] font-bold leading-[0.9] tracking-[-0.03em]" style={{ color: s.color }}>
@@ -160,7 +171,7 @@ export function AuthScreen() {
                       {s.label}
                     </span>
                   </div>
-                  <div className="text-[13px] leading-[1.35] text-[#FFF7EA]/75">{s.desc}</div>
+                  <div className="line-clamp-2 text-[13px] leading-[1.35] text-[#FFF7EA]/75">{s.desc}</div>
                 </div>
               ))}
             </div>
@@ -168,10 +179,10 @@ export function AuthScreen() {
 
           {/* Footer */}
           <div className="relative flex flex-none flex-wrap items-center justify-between gap-6 font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#FFF7EA]/40">
-            <span>247 articles analysés depuis hier</span>
+            <span>{articleCount != null ? articleCount : "…"} articles analysés</span>
             <span className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 animate-pulseDot rounded-full bg-[#4E8D6E]" />
-              Fait à Paris
+              Fait à Bordeaux
             </span>
           </div>
         </div>
