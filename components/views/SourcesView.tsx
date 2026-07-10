@@ -6,6 +6,7 @@ import type { Article, CategoryId } from "@/lib/types";
 import { categoryColor } from "@/lib/categories";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { ScanOverlay } from "@/components/ScanOverlay";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type GlobalSource = { id: string; name: string; type: string; category: string };
@@ -78,6 +79,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
       } else {
         setUrl("");
         setNote(`« ${d.name} » ajoutée — ${d.count} article${d.count > 1 ? "s" : ""} collecté${d.count > 1 ? "s" : ""}.`);
+        toast(`Source ajoutée · ${d.name}`, { icon: "+", color: "#4E8D6E" });
         await loadMine();
       }
     } catch {
@@ -90,6 +92,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
   async function removeUser(id: string) {
     const sb = getSupabaseBrowser();
     await sb?.from("user_sources").delete().eq("id", id);
+    toast("Source retirée", { icon: "✕", color: "#C8663A" });
     loadMine();
   }
 
@@ -123,12 +126,30 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
   );
 
   function togglePause(id: string) {
+    const willPause = !paused.has(id);
     setPaused((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+    toast(willPause ? "Source mise en pause" : "Source réactivée", {
+      icon: willPause ? "⏸" : "▶",
+      color: willPause ? "#C8663A" : "#4E8D6E",
+    });
+  }
+
+  function remove(s: Row) {
+    if (s.kind === "user") removeUser(s.id);
+    else {
+      setHidden((p) => new Set(p).add(s.id));
+      toast("Source retirée", { icon: "✕", color: "#C8663A" });
+    }
+  }
+
+  function pickFreq(f: string) {
+    setFreq(f);
+    toast(`Fréquence · ${f}`, { icon: "⏱", color: "#4E8D6E" });
   }
 
   return (
@@ -149,7 +170,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
         {FREQS.map((f) => (
           <button
             key={f}
-            onClick={() => setFreq(f)}
+            onClick={() => pickFreq(f)}
             className={cn(
               "rounded-full border px-[15px] py-[9px] text-[12.5px] font-medium transition-colors",
               freq === f
@@ -269,7 +290,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
                     {isPaused ? "En pause" : "Actif"}
                   </button>
                   <button
-                    onClick={() => (s.kind === "user" ? removeUser(s.id) : setHidden((p) => new Set(p).add(s.id)))}
+                    onClick={() => remove(s)}
                     className="rounded-2xl border border-border bg-transparent px-3 py-[6px] text-[11.5px] font-medium text-foreground/55 transition-colors hover:border-[#C8663A] hover:text-[#C8663A]"
                   >
                     Retirer

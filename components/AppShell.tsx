@@ -5,6 +5,7 @@ import type { Article, CategoryId, FluxView } from "@/lib/types";
 import { Sidebar, type AccountUser } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { RightRail } from "./RightRail";
+import { Toaster } from "./Toaster";
 
 export function AppShell({
   flux,
@@ -83,6 +84,8 @@ export function AppShell({
       <aside className="hidden h-screen xl:block">
         <RightRail flux={flux} />
       </aside>
+
+      <Toaster />
     </div>
   );
 }

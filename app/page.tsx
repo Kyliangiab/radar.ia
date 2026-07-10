@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Article, Briefing, CategoryId, Density, FluxView } from "@/lib/types";
+import { toast } from "@/lib/toast";
 import { CATEGORY_MAP } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/AppShell";
@@ -130,9 +131,11 @@ export default function Home() {
         if (next.has(id)) {
           next.delete(id);
           removeSaved(id);
+          toast("Article retiré", { icon: "✕", color: "#C8663A" });
         } else {
           next.add(id);
           addSaved(uid, id);
+          toast("Article enregistré", { icon: "✓", color: "#4E8D6E" });
         }
         return next;
       });
