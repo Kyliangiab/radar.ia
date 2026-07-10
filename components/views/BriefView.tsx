@@ -123,6 +123,30 @@ export function BriefView({
 
       {briefing && (
         <>
+          {/* Hero décoratif — juste au-dessus des 3 choses à retenir */}
+          <div
+            className="relative mb-9 h-[200px] overflow-hidden rounded-[18px]"
+            style={{ background: "linear-gradient(135deg,#FF5A47 0%,#C8663A 55%,#1A0A08 130%)" }}
+          >
+            <svg
+              viewBox="0 0 200 200"
+              className="pointer-events-none absolute -right-8 -top-8 h-[260px] w-[260px] opacity-20"
+            >
+              <circle cx="100" cy="100" r="40" fill="none" stroke="#FFF7EA" strokeWidth="1" />
+              <circle cx="100" cy="100" r="70" fill="none" stroke="#FFF7EA" strokeWidth="1" />
+              <circle cx="100" cy="100" r="96" fill="none" stroke="#FFF7EA" strokeWidth="1" />
+              <circle cx="100" cy="100" r="4" fill="#FFF7EA" />
+            </svg>
+            <div className="absolute bottom-6 left-7 right-7">
+              <div className="mb-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.16em] text-white/85">
+                Radar · signal du jour
+              </div>
+              <div className="text-[24px] font-bold leading-[1.15] text-white">
+                Ce qui ressort du flux, en un coup d'œil.
+              </div>
+            </div>
+          </div>
+
           <div className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.07em] text-foreground/40">
             3 choses à retenir
           </div>
@@ -163,14 +187,14 @@ export function BriefView({
             <div className="mb-[18px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
               Les chiffres du jour
             </div>
-            <div className="flex flex-wrap gap-10">
+            <div className="grid grid-cols-3 gap-4">
               {numbers.map((n) => (
-                <div key={n.label}>
-                  <div className="text-[44px] font-bold leading-none tracking-[-0.035em] text-[#FFF7EA]">
+                <div key={n.label} className="min-w-0">
+                  <div className="text-[40px] font-bold leading-none tracking-[-0.035em] text-[#FFF7EA] sm:text-[44px]">
                     {n.value}
-                    <span className="text-[18px] font-medium text-[#FFF7EA]/50">{n.unit}</span>
+                    <span className="text-[17px] font-medium text-[#FFF7EA]/50">{n.unit}</span>
                   </div>
-                  <div className="mt-2 text-[11.5px] text-[#FFF7EA]/55">{n.label}</div>
+                  <div className="mt-2 truncate text-[11.5px] text-[#FFF7EA]/55">{n.label}</div>
                 </div>
               ))}
             </div>

@@ -263,6 +263,31 @@ export default function Home() {
       }}
       onClearSearch={() => setResults(null)}
     >
+      {/* Onboarding — visible sur toutes les vues jusqu'à fermeture */}
+      {!onboardingDismissed && (
+        <div className="mb-7 flex items-center gap-3.5 rounded-[12px] border border-primary/25 bg-gradient-to-r from-primary/[0.14] to-primary/[0.04] p-[14px_18px]">
+          <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-primary text-[13px] font-bold text-white">
+            ✦
+          </span>
+          <div className="flex-1 text-[13px] leading-[1.4] text-foreground">
+            <b className="font-bold">Nouveau ici ?</b> Ajoute une première source pour affiner ton fil.
+          </div>
+          <button
+            onClick={() => setFlux("sources")}
+            className="shrink-0 rounded-full bg-primary px-3.5 py-[7px] text-[11px] font-bold text-white"
+          >
+            Ajouter →
+          </button>
+          <button
+            onClick={() => setOnboardingDismissed(true)}
+            aria-label="Fermer"
+            className="shrink-0 text-foreground/45 hover:text-foreground"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
       {results !== null ? (
         <SearchResults
           results={results}
@@ -288,31 +313,6 @@ export default function Home() {
         <TendancesView articles={articles} briefing={briefing} />
       ) : (
         <>
-          {flux === "fil" && !onboardingDismissed && (
-            <div className="mb-7 flex items-center gap-3.5 rounded-[12px] border border-primary/25 bg-gradient-to-r from-primary/[0.14] to-primary/[0.04] p-[14px_18px]">
-              <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-primary text-[13px] font-bold text-white">
-                ✦
-              </span>
-              <div className="flex-1 text-[13px] leading-[1.4] text-foreground">
-                <b className="font-bold">Nouveau ici ?</b> Ajoute une première source pour affiner ton
-                fil.
-              </div>
-              <button
-                onClick={() => setFlux("sources")}
-                className="shrink-0 rounded-full bg-primary px-3.5 py-[7px] text-[11px] font-bold text-white"
-              >
-                Ajouter →
-              </button>
-              <button
-                onClick={() => setOnboardingDismissed(true)}
-                aria-label="Fermer"
-                className="shrink-0 text-foreground/45 hover:text-foreground"
-              >
-                <X size={15} />
-              </button>
-            </div>
-          )}
-
           {flux === "fil" && (
             <div className="mb-3 flex items-center gap-3">
               <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-primary" />
