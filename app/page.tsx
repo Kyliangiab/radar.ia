@@ -16,6 +16,7 @@ import { listSaved, addSaved, removeSaved } from "@/lib/saved";
 import type { Session } from "@supabase/supabase-js";
 import { BriefView } from "@/components/views/BriefView";
 import { SourcesView } from "@/components/views/SourcesView";
+import { TendancesView } from "@/components/views/TendancesView";
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -23,9 +24,10 @@ function initialsOf(name: string): string {
   return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-const FEED_VIEWS: FluxView[] = ["fil", "enregistres"];
+const FEED_VIEWS: FluxView[] = ["fil", "recents", "enregistres"];
 const TITLES: Record<string, string> = {
   fil: "Pour toi",
+  recents: "Les plus récents",
   enregistres: "Mes fiches",
 };
 
@@ -179,8 +181,10 @@ export default function Home() {
   const feedList = useMemo(() => {
     let arr = articles.filter((a) => domain === "all" || a.category === domain);
     if (flux === "enregistres") arr = arr.filter((a) => saved.has(a.id));
+    // "Récents" force le tri par date, sinon on respecte le toggle.
+    const bySort = flux === "recents" ? "recent" : sort;
     return [...arr].sort((a, b) =>
-      sort === "recent"
+      bySort === "recent"
         ? new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
         : b.heat - a.heat,
     );
@@ -263,6 +267,8 @@ export default function Home() {
         />
       ) : flux === "sources" ? (
         <SourcesView />
+      ) : flux === "tendances" ? (
+        <TendancesView articles={articles} briefing={briefing} />
       ) : (
         <>
           {flux === "fil" && !onboardingDismissed && (

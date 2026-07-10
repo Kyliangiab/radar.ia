@@ -1,7 +1,7 @@
 export type CategoryId = "all" | "tech" | "biz" | "data" | "ux";
 
-// Vues de l'app : le fil (défaut), le brief du jour, les enregistrés, les sources.
-export type FluxView = "fil" | "brief" | "enregistres" | "sources";
+// Vues de l'app : le fil (défaut), le brief, récents, enregistrés, tendances, sources.
+export type FluxView = "fil" | "brief" | "recents" | "enregistres" | "tendances" | "sources";
 // Tri du fil : plus récents / plus pertinents (heat).
 export type FeedSort = "recent" | "hot";
 // Densité d'affichage du fil (design 4a) : cartes (Confort) ou liste (Compact).

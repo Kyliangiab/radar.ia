@@ -4,7 +4,9 @@ import { useState } from "react";
 import {
   Sparkles,
   Newspaper,
+  Clock,
   Bookmark,
+  TrendingUp,
   Rss,
   Check,
   LogOut,
@@ -27,7 +29,9 @@ export interface AccountUser {
 const FLUX: { id: FluxView; label: string; icon: LucideIcon }[] = [
   { id: "fil", label: "Pour toi", icon: Sparkles },
   { id: "brief", label: "Brief du jour", icon: Newspaper },
+  { id: "recents", label: "Récents", icon: Clock },
   { id: "enregistres", label: "Enregistrés", icon: Bookmark },
+  { id: "tendances", label: "Tendances", icon: TrendingUp },
 ];
 
 const pad2 = (n: number) => (n < 10 ? "0" : "") + n;
