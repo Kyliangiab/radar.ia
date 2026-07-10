@@ -55,7 +55,7 @@ export function BriefView({
   ].filter(Boolean) as string[];
 
   return (
-    <div className="max-w-[720px] pb-6">
+    <div className="pb-6">
       {/* En-tête : label auto-généré + Partager */}
       <div className="mb-3.5 flex items-center justify-between gap-4">
         <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
@@ -104,7 +104,7 @@ export function BriefView({
       <h1 className="mb-3.5 text-[32px] font-bold leading-[1.1] tracking-[-0.02em] text-foreground">
         Ce qui ressort du flux aujourd'hui
       </h1>
-      <p className="mb-[26px] text-[14.5px] leading-[1.6] text-foreground/[0.62]">
+      <p className="mb-[26px] max-w-[680px] text-[14.5px] leading-[1.6] text-foreground/[0.62]">
         Voici ce que Radar a retenu des {analyzed} articles analysés depuis hier, classés par impact
         pour tes prochaines conversations.
       </p>
