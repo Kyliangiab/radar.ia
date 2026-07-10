@@ -55,7 +55,7 @@ export function BriefView({
   ].filter(Boolean) as string[];
 
   return (
-    <div className="mx-auto max-w-[720px] pb-6">
+    <div className="max-w-[720px] pb-6">
       {/* En-tête : label auto-généré + Partager */}
       <div className="mb-3.5 flex items-center justify-between gap-4">
         <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
