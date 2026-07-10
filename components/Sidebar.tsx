@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Newspaper, Bookmark, Rss, Check, LogOut, type LucideIcon } from "lucide-react";
+import {
+  Sparkles,
+  Newspaper,
+  Bookmark,
+  Rss,
+  Check,
+  LogOut,
+  ChevronDown,
+  type LucideIcon,
+} from "lucide-react";
 import { BRAND } from "@/config/brand";
 import { CATEGORIES, RAMP } from "@/lib/categories";
 import type { CategoryId, FluxView } from "@/lib/types";
@@ -12,13 +21,16 @@ export interface AccountUser {
   name: string;
   initials: string;
   email?: string;
+  plan?: string;
 }
 
 const FLUX: { id: FluxView; label: string; icon: LucideIcon }[] = [
-  { id: "fil", label: "Le fil", icon: Newspaper },
-  { id: "brief", label: "Brief du jour", icon: Sparkles },
+  { id: "fil", label: "Pour toi", icon: Sparkles },
+  { id: "brief", label: "Brief du jour", icon: Newspaper },
   { id: "enregistres", label: "Enregistrés", icon: Bookmark },
 ];
+
+const pad2 = (n: number) => (n < 10 ? "0" : "") + n;
 
 export function Sidebar({
   flux,
@@ -26,6 +38,8 @@ export function Sidebar({
   domain,
   onDomain,
   savedCount,
+  domainCounts,
+  sourcesCount,
   user,
   onLogout,
   onNavigate,
@@ -35,12 +49,15 @@ export function Sidebar({
   domain: CategoryId;
   onDomain: (c: CategoryId) => void;
   savedCount: number;
+  domainCounts?: Partial<Record<CategoryId, number>>;
+  sourcesCount?: number;
   user: AccountUser;
   onLogout?: () => void;
   onNavigate?: () => void;
 }) {
   const domains = CATEGORIES.filter((c) => c.id !== "all");
   const [menuOpen, setMenuOpen] = useState(false);
+  const total = Object.values(domainCounts ?? {}).reduce((s, n) => s + (n ?? 0), 0);
 
   return (
     <div className="flex h-full flex-col bg-sidebar px-[15px] py-[22px] text-white">
@@ -76,6 +93,7 @@ export function Sidebar({
       <DomainItem
         label="Tous"
         gradient
+        count={domainCounts ? pad2(total) : undefined}
         active={domain === "all"}
         onClick={() => {
           onDomain("all");
@@ -87,6 +105,7 @@ export function Sidebar({
           key={d.id}
           label={d.label}
           color={d.color}
+          count={domainCounts ? pad2(domainCounts[d.id] ?? 0) : undefined}
           active={domain === d.id}
           onClick={() => {
             onDomain(d.id);
@@ -109,7 +128,7 @@ export function Sidebar({
         )}
       >
         <Rss size={16} className="shrink-0" />
-        <span>Sources</span>
+        <span>Sources{sourcesCount ? ` · ${sourcesCount}` : ""}</span>
       </button>
 
       {/* Compte */}
@@ -142,10 +161,14 @@ export function Sidebar({
           </span>
           <div className="min-w-0 flex-1 leading-[1.25]">
             <div className="truncate text-[12.5px] font-semibold text-white">{user.name}</div>
-            {user.email && (
-              <div className="truncate text-[10.5px] text-white/70">{user.email}</div>
-            )}
+            <div className="truncate text-[10.5px] text-white/70">
+              {user.plan ?? user.email ?? "Plan Max"}
+            </div>
           </div>
+          <ChevronDown
+            size={15}
+            className={cn("shrink-0 text-white/50 transition-transform", menuOpen && "rotate-180")}
+          />
         </button>
       </div>
     </div>
@@ -169,12 +192,14 @@ function DomainItem({
   label,
   color,
   gradient,
+  count,
   active,
   onClick,
 }: {
   label: string;
   color?: string;
   gradient?: boolean;
+  count?: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -193,10 +218,20 @@ function DomainItem({
         style={{ background: gradient ? RAMP : color }}
       />
       <span className="truncate">{label}</span>
+      {count && (
+        <span
+          className={cn(
+            "ml-auto font-mono text-[10.5px] tracking-[0.04em]",
+            active ? "text-foreground/50" : "text-white/40",
+          )}
+        >
+          {count}
+        </span>
+      )}
       {active && (
         <Check
           size={13}
-          className="ml-auto shrink-0"
+          className={cn("shrink-0", count ? "ml-1.5" : "ml-auto")}
           style={{ color: gradient ? "#FF5A47" : color }}
         />
       )}

@@ -12,6 +12,8 @@ export function AppShell({
   domain,
   onDomain,
   savedCount,
+  domainCounts,
+  sourcesCount,
   user,
   onLogout,
   onResults,
@@ -23,6 +25,8 @@ export function AppShell({
   domain: CategoryId;
   onDomain: (c: CategoryId) => void;
   savedCount: number;
+  domainCounts?: Partial<Record<CategoryId, number>>;
+  sourcesCount?: number;
   user: AccountUser;
   onLogout: () => void;
   onResults: (articles: Article[], query: string) => void;
@@ -38,6 +42,8 @@ export function AppShell({
       domain={domain}
       onDomain={onDomain}
       savedCount={savedCount}
+      domainCounts={domainCounts}
+      sourcesCount={sourcesCount}
       user={user}
       onLogout={onLogout}
       onNavigate={() => setMobileOpen(false)}

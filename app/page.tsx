@@ -25,7 +25,7 @@ function initialsOf(name: string): string {
 
 const FEED_VIEWS: FluxView[] = ["fil", "enregistres"];
 const TITLES: Record<string, string> = {
-  fil: "Le fil",
+  fil: "Pour toi",
   enregistres: "Mes fiches",
 };
 
@@ -97,7 +97,12 @@ export default function Home() {
       (u.user_metadata?.name as string) ||
       u.email ||
       "Utilisateur";
-    return { name, email: u.email ?? undefined, initials: initialsOf(name) };
+    return {
+      name,
+      email: u.email ?? undefined,
+      initials: initialsOf(name),
+      plan: "Max · billed annually",
+    };
   }, [session]);
 
   const logout = useCallback(async () => {
@@ -186,6 +191,21 @@ export default function Home() {
     return [...articles, ...(results ?? [])].find((a) => a.id === openId) ?? null;
   }, [openId, articles, results]);
 
+  // Compteurs par domaine (sidebar) + nombre de sources distinctes.
+  const domainCounts = useMemo(() => {
+    const c: Partial<Record<CategoryId, number>> = {};
+    for (const a of articles) c[a.category] = (c[a.category] ?? 0) + 1;
+    return c;
+  }, [articles]);
+  const sourcesCount = useMemo(() => new Set(articles.map((a) => a.source)).size, [articles]);
+
+  // Progression de lecture (ligne mono de l'en-tête).
+  const readInFeed = useMemo(
+    () => feedList.filter((a) => read.has(a.id)).length,
+    [feedList, read],
+  );
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
   const onDomain = useCallback((c: CategoryId) => {
     setResults(null);
     setDomain((prev) => (prev === c ? "all" : c));
@@ -199,7 +219,6 @@ export default function Home() {
 
   const domainLabel = domain !== "all" ? CATEGORY_MAP[domain]?.label : "";
   const domainColor = domain !== "all" ? CATEGORY_MAP[domain]?.color : "#FF5A47";
-  const firstName = account?.name.trim().split(/\s+/)[0] ?? "";
 
   // ── Gate d'authentification ──
   if (!authChecked) return <div className="min-h-screen bg-background" />;
@@ -213,6 +232,8 @@ export default function Home() {
       domain={domain}
       onDomain={onDomain}
       savedCount={saved.size}
+      domainCounts={domainCounts}
+      sourcesCount={sourcesCount}
       user={account}
       onLogout={logout}
       onResults={(arts, q) => {
@@ -244,13 +265,47 @@ export default function Home() {
         <SourcesView />
       ) : (
         <>
+          {flux === "fil" && !onboardingDismissed && (
+            <div className="mb-7 flex items-center gap-3.5 rounded-[12px] border border-primary/25 bg-gradient-to-r from-primary/[0.14] to-primary/[0.04] p-[14px_18px]">
+              <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-primary text-[13px] font-bold text-white">
+                ✦
+              </span>
+              <div className="flex-1 text-[13px] leading-[1.4] text-foreground">
+                <b className="font-bold">Nouveau ici ?</b> Ajoute une première source pour affiner ton
+                fil.
+              </div>
+              <button
+                onClick={() => setFlux("sources")}
+                className="shrink-0 rounded-full bg-primary px-3.5 py-[7px] text-[11px] font-bold text-white"
+              >
+                Ajouter →
+              </button>
+              <button
+                onClick={() => setOnboardingDismissed(true)}
+                aria-label="Fermer"
+                className="shrink-0 text-foreground/45 hover:text-foreground"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
+
           {flux === "fil" && (
-            <div className="mb-2 text-[13px] text-foreground/50">Bonjour, {firstName}</div>
+            <div className="mb-3 flex items-center gap-3">
+              <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-primary" />
+              <span className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-primary">
+                Le fil du jour
+              </span>
+              <span className="h-px flex-1 bg-border" />
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-foreground/40">
+                {readInFeed} / {feedList.length} lus
+              </span>
+            </div>
           )}
 
           <div className="mb-[26px] flex flex-wrap items-center gap-3.5">
             <h1 className="text-[25px] font-bold tracking-[-0.015em] text-foreground">
-              {TITLES[flux]}
+              {TITLES[flux]}.
             </h1>
             {domain !== "all" && (
               <button
