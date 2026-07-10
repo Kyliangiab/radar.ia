@@ -195,7 +195,7 @@ export function TendancesView({
           {signals.length ? (
             signals.map((g, i) => (
               <div key={i} className="flex items-start gap-3 border-t border-[#FFF7EA]/15 py-2.5">
-                <span className="mt-px grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-[#1A0A08] text-[11px] font-bold text-primary">
+                <span className="mt-px grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-[#FFF7EA]/20 text-[11px] font-bold text-[#FFF7EA]">
                   →
                 </span>
                 <span className="text-[12.5px] font-medium leading-[1.4] text-[#FFF7EA]">{g}</span>

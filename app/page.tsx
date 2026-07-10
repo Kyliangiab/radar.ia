@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
-import type { Article, Briefing, CategoryId, Density, FeedSort, FluxView } from "@/lib/types";
+import type { Article, Briefing, CategoryId, Density, FluxView } from "@/lib/types";
 import { CATEGORY_MAP } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/AppShell";
@@ -37,7 +37,6 @@ export default function Home() {
 
   const [flux, setFlux] = useState<FluxView>("fil");
   const [domain, setDomain] = useState<CategoryId>("all");
-  const [sort, setSort] = useState<FeedSort>("recent");
   const [density, setDensity] = useState<Density>("confort");
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [read, setRead] = useState<Set<string>>(new Set());
@@ -181,14 +180,14 @@ export default function Home() {
   const feedList = useMemo(() => {
     let arr = articles.filter((a) => domain === "all" || a.category === domain);
     if (flux === "enregistres") arr = arr.filter((a) => saved.has(a.id));
-    // "Récents" force le tri par date, sinon on respecte le toggle.
-    const bySort = flux === "recents" ? "recent" : sort;
+    // Pour toi = pertinence (heat) ; Récents / Enregistrés = par date (design 4a).
+    const bySort = flux === "fil" ? "hot" : "recent";
     return [...arr].sort((a, b) =>
       bySort === "recent"
         ? new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
         : b.heat - a.heat,
     );
-  }, [articles, domain, flux, saved, sort]);
+  }, [articles, domain, flux, saved]);
 
   const openArticle = useMemo(() => {
     if (!openId) return null;
@@ -313,18 +312,21 @@ export default function Home() {
         <TendancesView articles={articles} briefing={briefing} />
       ) : (
         <>
-          {flux === "fil" && (
-            <div className="mb-3 flex items-center gap-3">
-              <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-primary" />
-              <span className="truncate font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-primary">
-                Le fil du jour · {edition}
-              </span>
-              <span className="h-px flex-1 bg-border" />
-              <span className="whitespace-nowrap font-mono text-[10.5px] uppercase tracking-[0.1em] text-foreground/40">
-                {readInFeed} / {feedList.length} lus · ≈ {readInFeed * 2} min
-              </span>
-            </div>
-          )}
+          <div className="mb-3 flex items-center gap-3">
+            <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-primary" />
+            <span className="truncate font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-primary">
+              {flux === "fil"
+                ? "Le fil du jour"
+                : flux === "recents"
+                  ? "Les plus récents"
+                  : "Tes fiches"}{" "}
+              · {edition}
+            </span>
+            <span className="h-px flex-1 bg-border" />
+            <span className="whitespace-nowrap font-mono text-[10.5px] uppercase tracking-[0.1em] text-foreground/40">
+              {readInFeed} / {feedList.length} lus · ≈ {readInFeed * 2} min
+            </span>
+          </div>
 
           <div className="mb-[26px] flex flex-wrap items-center gap-3.5">
             <h1 className="text-[25px] font-bold tracking-[-0.015em] text-foreground">
@@ -339,31 +341,8 @@ export default function Home() {
                 {domainLabel} <span className="opacity-65">×</span>
               </button>
             )}
-            <span className="text-[12.5px] text-foreground/40">{feedList.length} articles</span>
 
             <div className="ml-auto flex items-center gap-2">
-              {/* Tri */}
-              <div className="flex gap-0.5 rounded-[9px] bg-foreground/5 p-[3px]">
-                {(
-                  [
-                    { id: "recent", label: "Récents" },
-                    { id: "hot", label: "Pertinence" },
-                  ] as { id: FeedSort; label: string }[]
-                ).map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setSort(s.id)}
-                    className={cn(
-                      "rounded-[7px] px-3.5 py-1.5 text-[12px] font-semibold transition-colors",
-                      sort === s.id
-                        ? "bg-card text-foreground shadow-[0_1px_2px_rgba(26,10,8,.1)]"
-                        : "text-foreground/50 hover:text-foreground",
-                    )}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
               {/* Densité */}
               <div className="flex gap-0.5 rounded-[9px] bg-foreground/5 p-[3px]">
                 {(
