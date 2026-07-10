@@ -34,10 +34,17 @@ export function BriefView({
       ? Math.round(articles.reduce((s, a) => s + (a.heat || 0), 0) / articles.length)
       : 0;
   const sourcesCount = new Set(articles.map((a) => a.source)).size;
+  // Lecture économisée : ~2 min par résumé lu au lieu de l'article complet.
+  const savedMin = analyzed * 2;
+  const saved =
+    savedMin >= 60
+      ? { value: String(Math.round(savedMin / 60)), unit: " h" }
+      : { value: String(savedMin), unit: " min" };
   const numbers = [
     { value: String(analyzed), unit: "", label: "Articles analysés" },
     { value: String(sourcesCount), unit: "", label: "Sources surveillées" },
     { value: String(avg), unit: "/100", label: "Pertinence moyenne" },
+    { value: saved.value, unit: saved.unit, label: "Lecture économisée" },
   ];
 
   // Signaux faibles : le "watch" IA + 2 signaux dérivés du flux réel.
@@ -189,14 +196,14 @@ export function BriefView({
             <div className="mb-[18px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
               Les chiffres du jour
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
               {numbers.map((n) => (
                 <div key={n.label} className="min-w-0">
-                  <div className="text-[40px] font-bold leading-none tracking-[-0.035em] text-[#FFF7EA] sm:text-[44px]">
+                  <div className="text-[48px] font-bold leading-none tracking-[-0.04em] text-[#FFF7EA] sm:text-[58px]">
                     {n.value}
-                    <span className="text-[17px] font-medium text-[#FFF7EA]/50">{n.unit}</span>
+                    <span className="text-[22px] font-medium text-[#FFF7EA]/50">{n.unit}</span>
                   </div>
-                  <div className="mt-2 truncate text-[11.5px] text-[#FFF7EA]/55">{n.label}</div>
+                  <div className="mt-2.5 truncate text-[12px] text-[#FFF7EA]/55">{n.label}</div>
                 </div>
               ))}
             </div>
