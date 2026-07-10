@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RotateCcw } from "lucide-react";
 import type { Article, CategoryId } from "@/lib/types";
 import { categoryColor, CATEGORY_MAP } from "@/lib/categories";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
-import { listSourcePrefs, setSourcePref } from "@/lib/sourcePrefs";
+import { listSourcePrefs, setSourcePref, purgeArchivedSource } from "@/lib/sourcePrefs";
 import { ScanOverlay } from "@/components/ScanOverlay";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type GlobalSource = { id: string; name: string; type: string; category: string };
 type UserSource = { id: string; name: string; url: string };
+
+type PrefRow = { paused: boolean; removed: boolean; removedAt: string | null };
 
 type Row = {
   id: string;
@@ -22,6 +24,7 @@ type Row = {
 };
 
 const FREQS = ["Temps réel", "Toutes les heures", "2× / jour", "Quotidien"];
+const ARCHIVE_MS = 72 * 3600 * 1000; // fenêtre de restauration : 72 h
 
 // "rss" + "tech" → "RSS · Tech" (comme le design).
 function prettyType(type: string, category: string) {
@@ -40,19 +43,44 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
   const [note, setNote] = useState<string | null>(null);
 
   const [freq, setFreq] = useState("Toutes les heures");
-  const [filter, setFilter] = useState<"all" | "active" | "paused">("all");
-  const [paused, setPaused] = useState<Set<string>>(new Set());
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<"all" | "active" | "paused" | "archived">("all");
+  const [prefsMap, setPrefsMap] = useState<Record<string, PrefRow>>({});
   const [uid, setUid] = useState<string | null>(null);
 
-  async function loadMine() {
+  const isPaused = (id: string) => !!prefsMap[id]?.paused;
+  const isRemoved = (id: string) => !!prefsMap[id]?.removed;
+
+  // Sources perso + préférences ; purge les archives perso de plus de 72 h.
+  async function loadUserData() {
     const sb = getSupabaseBrowser();
     if (!sb) return;
-    const { data } = await sb
-      .from("user_sources")
-      .select("id,name,url")
-      .order("created_at", { ascending: false });
-    setMine((data ?? []) as UserSource[]);
+    const uidVal = (await sb.auth.getUser()).data.user?.id ?? null;
+    setUid(uidVal);
+    const [mineRes, prefs] = await Promise.all([
+      sb.from("user_sources").select("id,name,url").order("created_at", { ascending: false }),
+      listSourcePrefs(),
+    ]);
+    const mineRows = (mineRes.data ?? []) as UserSource[];
+    const mineIds = new Set(mineRows.map((m) => m.id));
+
+    // Purge définitive : sources PERSO archivées depuis > 72 h → suppression DB.
+    const cutoff = Date.now() - ARCHIVE_MS;
+    const expired = prefs.filter(
+      (p) =>
+        p.removed &&
+        p.updated_at &&
+        new Date(p.updated_at).getTime() < cutoff &&
+        mineIds.has(p.source_id),
+    );
+    if (expired.length && uidVal) {
+      await Promise.all(expired.map((p) => purgeArchivedSource(uidVal, p.source_id)));
+      return loadUserData(); // recharge propre après purge
+    }
+
+    setMine(mineRows);
+    const map: Record<string, PrefRow> = {};
+    for (const p of prefs) map[p.source_id] = { paused: p.paused, removed: p.removed, removedAt: p.updated_at };
+    setPrefsMap(map);
   }
 
   useEffect(() => {
@@ -60,15 +88,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
       .then((r) => r.json())
       .then((d) => setGlobals(d.sources ?? []))
       .catch(() => {});
-    loadMine();
-    // Préférences persistées (pause / retrait par utilisateur).
-    (async () => {
-      const sb = getSupabaseBrowser();
-      setUid((await sb?.auth.getUser())?.data.user?.id ?? null);
-      const prefs = await listSourcePrefs();
-      setPaused(new Set(prefs.filter((p) => p.paused).map((p) => p.source_id)));
-      setHidden(new Set(prefs.filter((p) => p.removed).map((p) => p.source_id)));
-    })();
+    loadUserData();
   }, []);
 
   async function add() {
@@ -98,20 +118,13 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
         setUrl("");
         setNote(`« ${d.name} » ajoutée — ${d.count} article${d.count > 1 ? "s" : ""} collecté${d.count > 1 ? "s" : ""}.`);
         toast(`Source ajoutée · ${d.name}`, { icon: "+", color: "#4E8D6E" });
-        await loadMine();
+        await loadUserData();
       }
     } catch {
       setError("Ajout impossible. Réessaie.");
     } finally {
       setScanning(false);
     }
-  }
-
-  async function removeUser(id: string) {
-    const sb = getSupabaseBrowser();
-    await sb?.from("user_sources").delete().eq("id", id);
-    toast("Source retirée", { icon: "✕", color: "#C8663A" });
-    loadMine();
   }
 
   // Volume réel par source (nombre d'articles du flux venant de cette source).
@@ -121,7 +134,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
     return m;
   }, [articles]);
 
-  const rows: Row[] = useMemo(() => {
+  const allRows: Row[] = useMemo(() => {
     const g: Row[] = globals.map((s) => ({
       id: s.id,
       name: s.name,
@@ -136,21 +149,33 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
       color: "#FF5A47",
       kind: "user",
     }));
-    return [...g, ...u].filter((r) => !hidden.has(r.id));
-  }, [globals, mine, hidden]);
+    return [...g, ...u];
+  }, [globals, mine]);
+
+  // Sources visibles (non archivées).
+  const rows = useMemo(() => allRows.filter((r) => !isRemoved(r.id)), [allRows, prefsMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Archivées et encore restaurables (< 72 h).
+  const archivedRows = useMemo(() => {
+    const cutoff = Date.now() - ARCHIVE_MS;
+    return allRows
+      .filter((r) => {
+        const p = prefsMap[r.id];
+        return !!p?.removed && !!p.removedAt && new Date(p.removedAt).getTime() > cutoff;
+      })
+      .map((r) => ({ ...r, removedAt: prefsMap[r.id]!.removedAt as string }));
+  }, [allRows, prefsMap]);
 
   const shown = rows.filter((r) =>
-    filter === "all" ? true : filter === "paused" ? paused.has(r.id) : !paused.has(r.id),
+    filter === "active" ? !isPaused(r.id) : filter === "paused" ? isPaused(r.id) : true,
   );
 
   function togglePause(id: string) {
-    const willPause = !paused.has(id);
-    setPaused((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const willPause = !isPaused(id);
+    setPrefsMap((m) => ({
+      ...m,
+      [id]: { paused: willPause, removed: m[id]?.removed ?? false, removedAt: m[id]?.removedAt ?? null },
+    }));
     if (uid) setSourcePref(uid, id, { paused: willPause });
     toast(willPause ? "Source mise en pause" : "Source réactivée", {
       icon: willPause ? "⏸" : "▶",
@@ -158,13 +183,24 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
     });
   }
 
+  // Retirer = archiver (restaurable 72 h, PAS de suppression immédiate).
   function remove(s: Row) {
-    if (s.kind === "user") removeUser(s.id);
-    else {
-      setHidden((p) => new Set(p).add(s.id));
-      if (uid) setSourcePref(uid, s.id, { removed: true });
-      toast("Source retirée", { icon: "✕", color: "#C8663A" });
-    }
+    const nowIso = new Date().toISOString();
+    setPrefsMap((m) => ({
+      ...m,
+      [s.id]: { paused: m[s.id]?.paused ?? false, removed: true, removedAt: nowIso },
+    }));
+    if (uid) setSourcePref(uid, s.id, { removed: true });
+    toast("Source archivée · restaurable 72 h", { icon: "🗄", color: "#C8663A" });
+  }
+
+  function restore(id: string) {
+    setPrefsMap((m) => ({
+      ...m,
+      [id]: { paused: m[id]?.paused ?? false, removed: false, removedAt: null },
+    }));
+    if (uid) setSourcePref(uid, id, { removed: false });
+    toast("Source restaurée", { icon: "↩", color: "#4E8D6E" });
   }
 
   function pickFreq(f: string) {
@@ -228,9 +264,9 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
       {note && <p className="mb-2 text-[12px] text-[#4E8D6E]">{note}</p>}
 
       {/* Sources surveillées */}
-      <div className="mb-3 mt-6 flex items-center justify-between">
+      <div className="mb-3 mt-6 flex items-center justify-between gap-3">
         <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-foreground/40">
-          Sources surveillées · {rows.length}
+          {filter === "archived" ? `Archivées · ${archivedRows.length}` : `Sources surveillées · ${rows.length}`}
         </div>
         <div className="flex gap-0.5 rounded-full bg-foreground/[0.06] p-[3px]">
           {(
@@ -238,6 +274,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
               { id: "all", label: "Toutes" },
               { id: "active", label: "Actives" },
               { id: "paused", label: "Pause" },
+              { id: "archived", label: "Archivées" },
             ] as { id: typeof filter; label: string }[]
           ).map((f) => (
             <button
@@ -251,21 +288,72 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
               )}
             >
               {f.label}
+              {f.id === "archived" && archivedRows.length > 0 && (
+                <span className="ml-1 font-mono text-[9px] text-primary">{archivedRows.length}</span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
-      {shown.length === 0 ? (
+      {filter === "archived" ? (
+        archivedRows.length === 0 ? (
+          <p className="py-10 text-center text-[13px] text-foreground/45">
+            Aucune source archivée. « Retirer » place une source ici — restaurable 72 h.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            {archivedRows.map((s) => {
+              const hoursLeft = Math.max(
+                0,
+                Math.ceil((new Date(s.removedAt).getTime() + ARCHIVE_MS - Date.now()) / 3600000),
+              );
+              return (
+                <div
+                  key={s.id}
+                  className="flex flex-col gap-3 rounded-[13px] border border-dashed border-border bg-card p-[15px_17px]"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="h-[9px] w-[9px] shrink-0 rounded-full opacity-50"
+                      style={{ background: s.color }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13.5px] font-semibold leading-[1.2] text-foreground/70">
+                        {s.name}
+                      </div>
+                      <div className="mt-0.5 truncate text-[10.5px] text-foreground/45">{s.type}</div>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-[#C8663A]/[0.14] px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.04em] text-[#C8663A]">
+                      Archivée
+                    </span>
+                  </div>
+
+                  <div className="font-mono text-[10.5px] tracking-[0.02em] text-foreground/55">
+                    Restaurable encore {hoursLeft} h{s.kind === "user" ? " · puis supprimée" : ""}
+                  </div>
+
+                  <button
+                    onClick={() => restore(s.id)}
+                    className="flex items-center justify-center gap-1.5 rounded-2xl border border-[#4E8D6E]/45 bg-[#4E8D6E]/10 py-[6px] text-[11.5px] font-semibold text-[#4E8D6E] transition-colors hover:bg-[#4E8D6E]/20"
+                  >
+                    <RotateCcw size={13} /> Restaurer
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : shown.length === 0 ? (
         <p className="py-10 text-center text-[13px] text-foreground/45">
           Aucune source dans ce filtre.
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           {shown.map((s) => {
-            const isPaused = paused.has(s.id);
+            const paused = isPaused(s.id);
             const count = countBySource[s.name] ?? 0;
-            const health = isPaused ? "paused" : count > 0 ? "ok" : "slow";
+            const health = paused ? "paused" : count > 0 ? "ok" : "slow";
             const healthMeta =
               health === "ok"
                 ? { label: "OK", color: "#4E8D6E", bg: "rgba(78,141,110,.14)" }
@@ -302,12 +390,12 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
                     onClick={() => togglePause(s.id)}
                     className={cn(
                       "flex-1 rounded-2xl border py-[6px] text-[11.5px] font-semibold transition-colors",
-                      isPaused
+                      paused
                         ? "border-border bg-transparent text-foreground/55 hover:text-foreground"
                         : "border-[#4E8D6E]/45 bg-[#4E8D6E]/10 text-[#4E8D6E]",
                     )}
                   >
-                    {isPaused ? "En pause" : "Actif"}
+                    {paused ? "En pause" : "Actif"}
                   </button>
                   <button
                     onClick={() => remove(s)}
