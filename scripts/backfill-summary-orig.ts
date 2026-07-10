@@ -20,19 +20,33 @@ function isFrench(s: string): boolean {
   return hits >= 2;
 }
 
-async function translateBatch(texts: string[]): Promise<string[] | null> {
-  const parsed = await groqJSON<{ texts: string[] }>({
+// Traduction fiable, un résumé à la fois (pas de lot → pas de désync JSON).
+async function translateOne(text: string): Promise<string | null> {
+  const parsed = await groqJSON<{ text: string }>({
     system:
-      "Tu traduis des résumés d'actualité tech en anglais, de façon naturelle et concise. " +
+      "Tu traduis un résumé d'actualité tech en anglais, de façon naturelle et concise. " +
       "Garde les noms propres/sigles tels quels. " +
-      'Réponds UNIQUEMENT en JSON : { "texts": [...] } — même nombre, même ordre.',
-    user: `Traduis en anglais :\n${JSON.stringify(texts)}\n\nJSON.`,
+      'Réponds UNIQUEMENT en JSON : { "text": "traduction" }.',
+    user: `Traduis en anglais :\n${JSON.stringify(text)}\n\nJSON.`,
     model: GROQ_MODEL_ENRICH,
-    maxTokens: 1500,
+    maxTokens: 400,
     temperature: 0.2,
   });
-  const out = parsed?.texts;
-  return Array.isArray(out) && out.length === texts.length ? out : null;
+  const out = parsed?.text;
+  return typeof out === "string" && out.trim() ? out.trim() : null;
+}
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T, i: number) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let i = 0;
+  async function worker() {
+    while (i < items.length) {
+      const idx = i++;
+      out[idx] = await fn(items[idx], idx);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
 }
 
 async function main() {
@@ -54,26 +68,24 @@ async function main() {
   const todo = rows.filter((r) => r.summary && !isFrench(r.title));
   console.log(`À traiter : ${todo.length} / ${rows.length} (les FR sont laissés tels quels)`);
 
-  const BATCH = 12;
   let done = 0;
   let failed = 0;
-  for (let i = 0; i < todo.length; i += BATCH) {
-    const chunk = todo.slice(i, i + BATCH);
+  await mapLimit(todo, 5, async (r) => {
     try {
-      const translated = await translateBatch(chunk.map((r) => r.summary));
-      if (!translated) {
-        failed += chunk.length;
+      const en = await translateOne(r.summary);
+      if (!en) {
+        failed++;
       } else {
-        await Promise.all(
-          chunk.map((r, k) => sb.from("articles").update({ summary_orig: translated[k] }).eq("id", r.id)),
-        );
-        done += chunk.length;
+        await sb.from("articles").update({ summary_orig: en }).eq("id", r.id);
+        done++;
       }
     } catch {
-      failed += chunk.length;
+      failed++;
     }
-    console.log(`  … ${done}/${todo.length}${failed ? ` (${failed} échecs)` : ""}`);
-  }
+    if ((done + failed) % 10 === 0 || done + failed === todo.length) {
+      console.log(`  … ${done}/${todo.length}${failed ? ` (${failed} échecs)` : ""}`);
+    }
+  });
   console.log(`\nTerminé : ${done} summary_orig remplis${failed ? `, ${failed} échecs` : ""}.`);
 }
 

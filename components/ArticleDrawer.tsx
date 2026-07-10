@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { RelevancePill } from "./RelevancePill";
 
 type Mode = "court" | "resume";
-type Extra = { points: string[]; pullquote: string };
+type Extra = { summary: string; points: string[]; pullquote: string };
 
 function sentences(txt: string): string[] {
   return (txt || "")
@@ -182,13 +182,15 @@ export function ArticleDrawer({
     })
       .then((r) => r.json())
       .then((d) => {
-        if (cancelled || !d) return;
-        if (Array.isArray(d.points) || d.pullquote) {
-          setExtra((e) => ({
-            ...e,
-            [langKey]: { points: (d.points ?? []).slice(0, 3), pullquote: d.pullquote ?? "" },
-          }));
-        }
+        if (cancelled || !d || d.error) return;
+        setExtra((e) => ({
+          ...e,
+          [langKey]: {
+            summary: d.summary ?? "",
+            points: (d.points ?? []).slice(0, 3),
+            pullquote: d.pullquote ?? "",
+          },
+        }));
       })
       .catch(() => {});
     return () => {
@@ -201,15 +203,18 @@ export function ArticleDrawer({
   const origIsFrench = isFrench(a.title);
   const origLangLabel = origIsFrench ? "Français" : "English";
 
-  // Affichage par langue — résumé stocké dans les 2 langues (instantané).
+  // Affichage par langue — résumé stocké (instantané) ; repli sur le résumé
+  // généré à la volée (extra, dans la bonne langue) puis sur l'extrait, pour ne
+  // jamais afficher "pas de résumé" quand un article n'a pas été enrichi.
+  const ex = extra[langKey];
   const displayTitle = lang === "fr" ? frMap[a.title] ?? a.title : a.title;
-  const summaryVo = a.summaryOrig || a.summary || "";
-  const summaryFr = a.summary || a.summaryOrig || "";
-  const displaySummary = lang === "vo" ? summaryVo : summaryFr;
+  // En VO on ne retombe PAS sur le résumé FR : summary_orig → résumé live (EN)
+  // → extrait. En FR : summary → résumé live (FR) → extrait.
+  const storedSummary = lang === "vo" ? a.summaryOrig ?? "" : a.summary ?? "";
   const courtOrig = a.snippet || "";
   const displayCourt = lang === "fr" ? frMap[courtOrig] ?? courtOrig : courtOrig;
-  const body = mode === "court" ? displayCourt : displaySummary;
-  const ex = extra[langKey];
+  const displaySummary = storedSummary || ex?.summary || courtOrig || "";
+  const body = mode === "court" ? displayCourt || displaySummary : displaySummary;
   const displayPoints = ex?.points?.length ? ex.points : sentences(displaySummary).slice(0, 3);
   const displayPullquote =
     ex?.pullquote || (lang === "fr" ? a.whyItMatters ?? "" : "") || sentences(displaySummary)[0] || "";
