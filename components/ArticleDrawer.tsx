@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X, Bookmark, Check, Share2, Loader2, ArrowUpRight } from "lucide-react";
 import type { Article, CategoryId } from "@/lib/types";
 import { categoryColor, CATEGORY_MAP } from "@/lib/categories";
@@ -56,12 +56,45 @@ export function ArticleDrawer({
   // Animation entrée/sortie du tiroir.
   const [entered, setEntered] = useState(false);
   const [closing, setClosing] = useState(false);
+  // Swipe-pour-fermer (mobile) : on suit le doigt vers la droite.
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const touch = useRef<{ x0: number; y0: number; swiping: boolean } | null>(null);
 
   // Fermeture animée : joue la sortie puis prévient le parent.
   const handleClose = useCallback(() => {
     setClosing(true);
     setTimeout(onClose, 280);
   }, [onClose]);
+
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    touch.current = { x0: t.clientX, y0: t.clientY, swiping: false };
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (!touch.current) return;
+    const t = e.touches[0];
+    const dx = t.clientX - touch.current.x0;
+    const dy = t.clientY - touch.current.y0;
+    if (!touch.current.swiping) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+        touch.current.swiping = true;
+        setDragging(true);
+      } else if (Math.abs(dy) > 10) {
+        touch.current = null; // scroll vertical → on abandonne le swipe
+        return;
+      } else return;
+    }
+    setDragX(Math.max(0, dx));
+  }
+  function onTouchEnd() {
+    if (touch.current?.swiping) {
+      if (dragX > 90) handleClose();
+      else setDragX(0);
+    }
+    setDragging(false);
+    touch.current = null;
+  }
 
   // Fermeture au clavier + reset à chaque article + animation d'entrée.
   useEffect(() => {
@@ -74,6 +107,8 @@ export function ArticleDrawer({
     setFrMap({});
     setClosing(false);
     setEntered(false);
+    setDragX(0);
+    setDragging(false);
     const raf = requestAnimationFrame(() => setEntered(true));
     // Points/pullquote : dérivés du résumé/snippet, puis enrichis via Groq si dispo.
     const base = article.summary || article.snippet || "";
@@ -210,20 +245,15 @@ export function ArticleDrawer({
         onClick={handleClose}
         aria-hidden="true"
       />
-      {/* Poignée de fermeture au bord gauche du tiroir — montre qu'on peut sortir */}
-      <button
-        onClick={handleClose}
-        aria-label="Fermer le panneau"
-        title="Fermer (Échap)"
-        className="group absolute top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 place-items-center transition-opacity duration-300 sm:grid"
-        style={{ right: 560, opacity: open ? 1 : 0 }}
-      >
-        <span className="h-16 w-1.5 rounded-full bg-[#FFF7EA]/60 transition-all group-hover:h-24 group-hover:bg-primary" />
-      </button>
-
       <aside
-        className="absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto bg-background p-[22px_28px_32px] shadow-[-24px_0_48px_-18px_rgba(26,10,8,.35)] transition-transform duration-300 ease-[cubic-bezier(.4,0,.2,1)]"
-        style={{ transform: open ? "translateX(0)" : "translateX(100%)" }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        className={
+          "absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto bg-background p-[22px_28px_32px] shadow-[-24px_0_48px_-18px_rgba(26,10,8,.35)]" +
+          (dragging ? "" : " transition-transform duration-300 ease-[cubic-bezier(.4,0,.2,1)]")
+        }
+        style={{ transform: open ? `translateX(${dragX}px)` : "translateX(100%)" }}
       >
         {/* Header */}
         <div className="mb-4 flex items-center">
@@ -234,18 +264,13 @@ export function ArticleDrawer({
             </span>
             <RelevancePill score={a.heat} className="ml-1" />
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <kbd className="hidden rounded-[5px] border border-border px-1.5 py-0.5 font-mono text-[9px] font-semibold text-foreground/40 sm:inline">
-              Échap
-            </kbd>
-            <button
-              onClick={handleClose}
-              aria-label="Fermer"
-              className="grid h-[30px] w-[30px] place-items-center rounded-full border border-border bg-card text-foreground/55 transition-colors hover:border-primary hover:text-primary"
-            >
-              <X size={15} />
-            </button>
-          </div>
+          <button
+            onClick={handleClose}
+            aria-label="Fermer"
+            className="ml-auto grid h-[30px] w-[30px] place-items-center rounded-full border border-border bg-card text-foreground/55 transition-colors hover:border-primary hover:text-primary"
+          >
+            <X size={15} />
+          </button>
         </div>
 
         <div className="mb-3 flex items-start justify-between gap-3">

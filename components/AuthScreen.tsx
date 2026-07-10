@@ -6,6 +6,7 @@ import { BRAND } from "@/config/brand";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { editionInfo } from "@/lib/edition";
 import { fetchStats, type StatsResp } from "@/lib/stats";
+import { Logo } from "./Logo";
 
 type Mode = "login" | "register";
 type Busy = null | "google" | "email" | "magic";
@@ -153,48 +154,38 @@ export function AuthScreen() {
           <div className="pointer-events-none absolute -right-36 -top-36 h-[520px] w-[520px] rounded-full" style={{ background: "radial-gradient(circle,rgba(255,90,71,.16),transparent 65%)" }} />
           <div className="pointer-events-none absolute -bottom-24 -left-24 h-[360px] w-[360px] rounded-full" style={{ background: "radial-gradient(circle,rgba(255,90,71,.08),transparent 65%)" }} />
 
-          {/* Logo — carré corail + balayage radar qui tourne (comme le sidebar) */}
-          <div className="relative flex flex-none items-center gap-3.5">
-            <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-[13px] bg-primary">
-              <span
-                className="absolute inset-0 animate-sweep"
-                style={{
-                  background:
-                    "conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(26,10,8,.6) 355deg, transparent 360deg)",
-                }}
-              />
-              <span className="absolute h-4 w-4 rounded-full border-[3px] border-[#1A0A08]" />
-              <span className="absolute h-[3px] w-[3px] rounded-full bg-[#1A0A08]" />
-            </div>
-            <div>
-              <div className="text-[21px] font-bold leading-none tracking-[-0.014em]">{BRAND.name}</div>
-              <div className="mt-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#FFF7EA]/55">
-                {edition}
+          {/* Logo (le même que l'app) + toggle VO/FR aligné à droite du panneau */}
+          <div className="relative flex flex-none items-center justify-between gap-3.5">
+            <div className="flex items-center gap-3.5">
+              <Logo size={44} />
+              <div>
+                <div className="text-[21px] font-bold leading-none tracking-[-0.014em]">{BRAND.name}</div>
+                <div className="mt-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#FFF7EA]/55">
+                  {edition}
+                </div>
               </div>
+            </div>
+            <div className="flex gap-0.5 rounded-full bg-[#FFF7EA]/[0.08] p-[3px]">
+              {(["vo", "fr"] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setNewsLang(l)}
+                  className={
+                    "rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] transition-colors " +
+                    (newsLang === l ? "bg-primary text-white" : "text-[#FFF7EA]/55 hover:text-[#FFF7EA]")
+                  }
+                >
+                  {l}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* Éditorial centré */}
           <div className="relative flex max-w-[640px] flex-1 flex-col justify-center" style={{ animation: "radFloatIn .6s ease-out both" }}>
-            <div className="mb-8 flex items-center justify-between gap-3">
-              <div className="inline-flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
-                <span className="h-2 w-2 animate-pulseDot rounded-full bg-primary" />
-                Ce matin dans le brief
-              </div>
-              <div className="flex gap-0.5 rounded-full bg-[#FFF7EA]/[0.08] p-[3px]">
-                {(["vo", "fr"] as const).map((l) => (
-                  <button
-                    key={l}
-                    onClick={() => setNewsLang(l)}
-                    className={
-                      "rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] transition-colors " +
-                      (newsLang === l ? "bg-primary text-white" : "text-[#FFF7EA]/55 hover:text-[#FFF7EA]")
-                    }
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
+            <div className="mb-8 inline-flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+              <span className="h-2 w-2 animate-pulseDot rounded-full bg-primary" />
+              Ce matin dans le brief
             </div>
 
             <h1 className="mb-4 text-[clamp(40px,4vw,68px)] font-bold leading-[1] tracking-[-0.035em] [text-wrap:balance]">
