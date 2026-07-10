@@ -23,7 +23,7 @@ export function Toaster() {
         <div
           key={t.id}
           className="pointer-events-none fixed bottom-6 left-1/2 z-[100] flex items-center gap-2.5 rounded-full bg-[#1A0A08] px-5 py-3 text-[13px] font-medium text-[#FFF7EA] shadow-[0_16px_40px_-10px_rgba(26,10,8,.5)]"
-          style={{ animation: "radToast .3s cubic-bezier(.34,1.56,.64,1)" }}
+          style={{ animation: "radToast .3s cubic-bezier(.34,1.56,.64,1) both" }}
         >
           <span
             className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full text-[11px] font-bold text-[#1A0A08]"

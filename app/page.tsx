@@ -205,6 +205,31 @@ export default function Home() {
   }, [articles]);
   const sourcesCount = useMemo(() => new Set(articles.map((a) => a.source)).size, [articles]);
 
+  // Compteur réel de sources surveillées (globales + flux perso) pour la sidebar.
+  const [sourcesTotal, setSourcesTotal] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      let g = 0;
+      try {
+        const d = await fetch("/api/sources").then((r) => r.json());
+        g = (d.sources ?? []).length;
+      } catch {}
+      let u = 0;
+      const sb = getSupabaseBrowser();
+      if (sb) {
+        const { count } = await sb
+          .from("user_sources")
+          .select("id", { count: "exact", head: true });
+        u = count ?? 0;
+      }
+      if (alive) setSourcesTotal(g + u);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [session]);
+
   // "Aussi couvert par" : mêmes domaine, autres sources.
   const relatedArticles = useMemo(() => {
     if (!openArticle) return [];
@@ -256,7 +281,7 @@ export default function Home() {
       onDomain={onDomain}
       savedCount={saved.size}
       domainCounts={domainCounts}
-      sourcesCount={sourcesCount}
+      sourcesCount={sourcesTotal ?? sourcesCount}
       user={account}
       onLogout={logout}
       onResults={(arts, q) => {

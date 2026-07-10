@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { Article, CategoryId } from "@/lib/types";
-import { categoryColor } from "@/lib/categories";
+import { categoryColor, CATEGORY_MAP } from "@/lib/categories";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { ScanOverlay } from "@/components/ScanOverlay";
 import { toast } from "@/lib/toast";
@@ -21,6 +21,14 @@ type Row = {
 };
 
 const FREQS = ["Temps réel", "Toutes les heures", "2× / jour", "Quotidien"];
+
+// "rss" + "tech" → "RSS · Tech" (comme le design).
+function prettyType(type: string, category: string) {
+  const cat = CATEGORY_MAP[category as CategoryId]?.label ?? category;
+  const kind =
+    type === "rss" ? "RSS" : type === "producthunt" ? "Product Hunt" : type === "devto" ? "API" : type.toUpperCase();
+  return `${kind} · ${cat}`;
+}
 
 export function SourcesView({ articles = [] }: { articles?: Article[] }) {
   const [globals, setGlobals] = useState<GlobalSource[]>([]);
@@ -107,7 +115,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
     const g: Row[] = globals.map((s) => ({
       id: s.id,
       name: s.name,
-      type: s.type,
+      type: prettyType(s.type, s.category),
       color: categoryColor(s.category as CategoryId),
       kind: "global",
     }));
