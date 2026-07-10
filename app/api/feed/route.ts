@@ -61,7 +61,12 @@ export async function GET(request: Request) {
           category,
           source: "db",
           count: data.length,
-          _debug: { uid, validUid, err: error ? String((error as { message?: string }).message) : null },
+          _debug: {
+            uid,
+            validUid,
+            supaHost: (process.env.SUPABASE_URL || "").replace(/^https?:\/\//, "").split(".")[0],
+            err: error ? String((error as { message?: string }).message) : null,
+          },
           articles: data.map(mapRow),
         });
       }
