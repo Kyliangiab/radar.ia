@@ -250,7 +250,7 @@ export function ArticleDrawer({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         className={
-          "absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto bg-background p-[22px_28px_32px] shadow-[-24px_0_48px_-18px_rgba(26,10,8,.35)]" +
+          "absolute right-0 top-0 h-full w-[calc(100vw-30px)] max-w-[560px] overflow-y-auto rounded-l-[20px] bg-background p-[22px_28px_32px] shadow-[-24px_0_48px_-18px_rgba(26,10,8,.4)] sm:rounded-none" +
           (dragging ? "" : " transition-transform duration-300 ease-[cubic-bezier(.4,0,.2,1)]")
         }
         style={{ transform: open ? `translateX(${dragX}px)` : "translateX(100%)" }}

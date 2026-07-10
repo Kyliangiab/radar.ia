@@ -112,7 +112,7 @@ export function Topbar({
 
   return (
     <header className="sticky top-0 z-20 flex-none border-b border-border bg-background/90 backdrop-blur-md">
-      <div className="flex items-center gap-4 px-4 py-[13px] sm:px-6">
+      <div className="flex items-center gap-2.5 px-4 py-[13px] sm:gap-4 sm:px-6">
         <button
           onClick={onBurger}
           className="grid h-9 w-9 place-items-center rounded-lg text-foreground/50 hover:text-foreground lg:hidden"
@@ -147,14 +147,14 @@ export function Topbar({
               Effacer
             </button>
           ) : (
-            <kbd className="shrink-0 rounded-[5px] border border-border px-[5px] py-0.5 font-mono text-[10px] font-semibold text-foreground/35">
+            <kbd className="hidden shrink-0 rounded-[5px] border border-border px-[5px] py-0.5 font-mono text-[10px] font-semibold text-foreground/35 sm:block">
               ⌘K
             </kbd>
           )}
         </div>
 
         {/* Thème · Synchro · Notifications */}
-        <div className="ml-auto flex items-center gap-2.5">
+        <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
           <ThemeToggle />
 
           <div className="hidden items-center gap-2 rounded-full bg-[#4E8D6E]/[0.14] px-[14px] py-[7px] md:flex">
@@ -180,7 +180,7 @@ export function Topbar({
             {notifOpen && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setNotifOpen(false)} />
-                <div className="absolute right-0 top-11 z-40 w-[330px] rounded-[14px] border border-border bg-popover p-2 shadow-[0_24px_48px_-14px_rgba(26,10,8,.3)]">
+                <div className="absolute right-0 top-11 z-40 max-h-[75vh] w-[330px] max-w-[calc(100vw-24px)] origin-top-right overflow-y-auto rounded-[14px] border border-border bg-popover p-2 shadow-[0_24px_48px_-14px_rgba(26,10,8,.3)]">
                   <div className="flex items-center px-3 py-2">
                     <span className="font-mono text-[10.5px] font-bold uppercase tracking-[0.12em] text-foreground/55">
                       Notifications
