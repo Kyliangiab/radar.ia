@@ -5,15 +5,14 @@ import { Loader2 } from "lucide-react";
 import { BRAND } from "@/config/brand";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { editionInfo } from "@/lib/edition";
-import { Logo } from "./Logo";
 
 type Mode = "login" | "register";
 type Busy = null | "google" | "email" | "magic";
 
 /**
- * Écran de connexion / création de compte (design "Radar Login", 2 panneaux).
- * Google OAuth + email/mot de passe + lien magique + mot de passe oublié,
- * tout via Supabase Auth. Le panneau éditorial (gauche) est masqué en mobile.
+ * Écran de connexion / création de compte (design "Radar Login", plein écran).
+ * Panneau éditorial (gauche, centré) + formulaire (droite). Google OAuth +
+ * email/mot de passe + lien magique + mot de passe oublié via Supabase Auth.
  */
 export function AuthScreen() {
   const [mode, setMode] = useState<Mode>("login");
@@ -29,8 +28,7 @@ export function AuthScreen() {
 
   const isRegister = mode === "register";
   // URL de redirection d'auth : URL canonique de prod si définie (Vercel),
-  // sinon l'origine courante (utile en dev local). Évite que les liens
-  // magiques / OAuth demandés depuis localhost renvoient vers localhost.
+  // sinon l'origine courante (dev local). Évite le renvoi vers localhost.
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ||
     (typeof window !== "undefined" ? window.location.origin : undefined);
@@ -52,7 +50,6 @@ export function AuthScreen() {
       setError(error.message);
       setBusy(null);
     }
-    // Succès → redirection vers Google, pas de retour ici.
   }
 
   async function submitEmail(e: React.FormEvent) {
@@ -71,10 +68,10 @@ export function AuthScreen() {
       });
       if (error) setError(error.message);
       else if (!data.session) setInfo("Compte créé — vérifie tes emails pour confirmer ton adresse.");
-      // Si la confirmation e-mail est désactivée, la session arrive et l'app se charge.
     } else {
       const { error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message === "Invalid login credentials" ? "Email ou mot de passe incorrect." : error.message);
+      if (error)
+        setError(error.message === "Invalid login credentials" ? "Email ou mot de passe incorrect." : error.message);
     }
     setBusy(null);
   }
@@ -103,70 +100,91 @@ export function AuthScreen() {
     else setInfo("Email de réinitialisation envoyé.");
   }
 
-  return (
-    <div className="flex min-h-screen w-full bg-[#FFF7EA] font-sans">
-        {/* ── Panneau éditorial (gauche) ── */}
-        <div className="relative hidden w-[46%] flex-none flex-col overflow-hidden bg-[#1A0A08] p-[56px_60px_52px] text-[#FFF7EA] lg:flex">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-[400px] w-[400px] rounded-full" style={{ background: "radial-gradient(circle,rgba(255,90,71,.14),transparent 65%)" }} />
+  const SIGNALS = [
+    { n: "01", label: "Data / IA", color: "#8E5FB8", desc: "Petits modèles à < 3 B" },
+    { n: "02", label: "Tech", color: "#C8663A", desc: "WebGPU stabilise en prod" },
+    { n: "03", label: "Business", color: "#4E8D6E", desc: "Fundraise Series A ↑ 22 %" },
+  ];
 
-          <div className="relative flex items-center gap-3">
-            <Logo size={38} />
+  return (
+    <>
+      <style>{`@keyframes radFloatIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes radLogoSweep{0%{transform:translate(-50%,-50%) rotate(0)}100%{transform:translate(-50%,-50%) rotate(360deg)}}`}</style>
+
+      <div className="flex h-screen w-full overflow-hidden bg-[#FFF7EA] font-sans">
+        {/* ── Panneau éditorial (gauche) ── */}
+        <div className="relative hidden flex-[1.15] flex-col overflow-hidden bg-[#1A0A08] px-[clamp(40px,5vw,84px)] py-[clamp(40px,5vw,72px)] text-[#FFF7EA] lg:flex">
+          <div className="pointer-events-none absolute -right-36 -top-36 h-[520px] w-[520px] rounded-full" style={{ background: "radial-gradient(circle,rgba(255,90,71,.16),transparent 65%)" }} />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 h-[360px] w-[360px] rounded-full" style={{ background: "radial-gradient(circle,rgba(255,90,71,.08),transparent 65%)" }} />
+
+          {/* Logo */}
+          <div className="relative flex flex-none items-center gap-3.5">
+            <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-[13px] bg-primary">
+              <div className="h-4 w-4 rounded-full border-[3px] border-[#1A0A08]" />
+              <div
+                className="absolute left-1/2 top-1/2 h-px w-full origin-left"
+                style={{ background: "linear-gradient(90deg,transparent,#1A0A08)", animation: "radLogoSweep 3s linear infinite" }}
+              />
+            </div>
             <div>
-              <div className="text-[18px] font-bold leading-none tracking-[-0.012em]">{BRAND.name}</div>
-              <div className="mt-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.14em] text-[#FFF7EA]/55">
+              <div className="text-[21px] font-bold leading-none tracking-[-0.014em]">{BRAND.name}</div>
+              <div className="mt-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#FFF7EA]/55">
                 {edition}
               </div>
             </div>
           </div>
 
-          <div className="relative mt-auto">
-            <div className="mb-6 inline-flex items-center gap-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.16em] text-primary">
+          {/* Éditorial centré */}
+          <div className="relative flex max-w-[640px] flex-1 flex-col justify-center" style={{ animation: "radFloatIn .6s ease-out both" }}>
+            <div className="mb-8 inline-flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
               <span className="h-2 w-2 animate-pulseDot rounded-full bg-primary" />
               Ce matin dans le brief
             </div>
 
-            <h1 className="mb-6 text-[46px] font-bold leading-[0.98] tracking-[-0.035em] [text-wrap:balance]">
-              {"Les modèles < 3 B rattrapent GPT-4."}
+            <h1 className="mb-7 text-[clamp(48px,4.5vw,72px)] font-bold leading-[0.98] tracking-[-0.035em] [text-wrap:balance]">
+              {"Les modèles < 3 B rattrapent GPT-4."}
             </h1>
 
-            <p className="mb-8 max-w-[420px] text-[15px] leading-[1.55] text-[#FFF7EA]/[0.66]">
+            <p className="mb-11 max-w-[520px] text-[clamp(15px,1.15vw,17px)] leading-[1.55] text-[#FFF7EA]/[0.66]">
               Sur 12 benchmarks, les petits modèles fine-tunés talonnent — à coût d'inférence divisé
               par 40. Deux autres signaux t'attendent dans ton brief.
             </p>
 
-            <div className="flex gap-4 rounded-[14px] border border-[#FFF7EA]/[0.12] bg-[#FFF7EA]/[0.05] p-[16px_18px]">
-              {[
-                { n: "01", label: "Data / IA", color: "#8E5FB8" },
-                { n: "02", label: "Tech", color: "#C8663A" },
-                { n: "03", label: "Business", color: "#4E8D6E" },
-              ].map((s) => (
-                <div key={s.n} className="flex flex-1 items-center gap-2">
-                  <div className="text-[22px] font-bold leading-none tracking-[-0.03em]" style={{ color: s.color }}>
-                    {s.n}
+            <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-[#FFF7EA]/[0.12] bg-[#FFF7EA]/[0.12]">
+              {SIGNALS.map((s) => (
+                <div key={s.n} className="bg-[#1A0A08] p-[22px_20px]">
+                  <div className="mb-2 flex items-baseline gap-2.5">
+                    <span className="text-[28px] font-bold leading-[0.9] tracking-[-0.03em]" style={{ color: s.color }}>
+                      {s.n}
+                    </span>
+                    <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-[#FFF7EA]/55">
+                      {s.label}
+                    </span>
                   </div>
-                  <div className="font-mono text-[8.5px] font-bold uppercase leading-tight tracking-[0.1em] text-[#FFF7EA]/55">
-                    {s.label}
-                  </div>
+                  <div className="text-[13px] leading-[1.35] text-[#FFF7EA]/75">{s.desc}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="relative mt-9 flex items-center justify-between font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#FFF7EA]/40">
+          {/* Footer */}
+          <div className="relative flex flex-none flex-wrap items-center justify-between gap-6 font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#FFF7EA]/40">
             <span>247 articles analysés depuis hier</span>
-            <span>Fait à Paris</span>
+            <span className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 animate-pulseDot rounded-full bg-[#4E8D6E]" />
+              Fait à Paris
+            </span>
           </div>
         </div>
 
         {/* ── Formulaire (droite) ── */}
-        <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-12 lg:px-[72px]">
-          <div className="mx-auto w-full max-w-[400px]">
+        <div className="flex flex-1 flex-col justify-center overflow-y-auto px-6 py-10 sm:px-12 lg:px-[clamp(40px,5vw,80px)]">
+          <div className="mx-auto w-full max-w-[400px]" style={{ animation: "radFloatIn .6s ease-out .15s both" }}>
             <div className="mb-4 inline-flex items-center gap-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.16em] text-primary">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               {isRegister ? "Créer un compte" : "Se connecter"}
             </div>
 
-            <h2 className="mb-3 text-[40px] font-bold leading-none tracking-[-0.028em] text-[#1A0A08]">
+            <h2 className="mb-3 text-[44px] font-bold leading-none tracking-[-0.028em] text-[#1A0A08]">
               {isRegister ? "Ouvre ton Radar." : "Bienvenue."}
             </h2>
             <p className="mb-6 text-[14.5px] leading-[1.5] text-[#1A0A08]/[0.62]">
@@ -217,7 +235,7 @@ export function AuthScreen() {
             </button>
 
             {/* Divider */}
-            <div className="my-6 flex items-center gap-3.5">
+            <div className="my-5 flex items-center gap-3.5">
               <div className="h-px flex-1 bg-[#1A0A08]/[0.12]" />
               <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#1A0A08]/[0.42]">
                 ou par email
@@ -282,7 +300,7 @@ export function AuthScreen() {
             </form>
 
             {/* Lien magique */}
-            <div className="mt-4 text-center">
+            <div className="mt-3.5 text-center">
               <button
                 onClick={magicLink}
                 disabled={busy === "magic"}
@@ -298,7 +316,7 @@ export function AuthScreen() {
             </div>
 
             {/* Swap */}
-            <div className="mt-6 border-t border-[#1A0A08]/[0.1] pt-5 text-center text-[13px] text-[#1A0A08]/60">
+            <div className="mt-5 border-t border-[#1A0A08]/[0.1] pt-5 text-center text-[13px] text-[#1A0A08]/60">
               {isRegister ? (
                 <>
                   Déjà un compte ?{" "}
@@ -317,7 +335,8 @@ export function AuthScreen() {
             </div>
           </div>
         </div>
-    </div>
+      </div>
+    </>
   );
 }
 
