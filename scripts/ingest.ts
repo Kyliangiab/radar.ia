@@ -120,6 +120,24 @@ async function main() {
   }
 
   console.log(`\nTerminé : ${done} articles stockés${failed ? `, ${failed} échecs` : ""}.`);
+
+  // 3) Snapshot du VOLUME DU JOUR par domaine → daily_topic_volume.
+  //    Idempotent : recompte le volume collecté aujourd'hui à chaque passage
+  //    (upsert sur (day, topic)). Alimente les vraies variations des Tendances.
+  const today = new Date().toISOString().slice(0, 10); // AAAA-MM-JJ (UTC)
+  const TOPICS = ["tech", "biz", "data", "ux", "autre"];
+  console.log(`\nSnapshot volume du ${today}…`);
+  for (const topic of TOPICS) {
+    const { count } = await supabase
+      .from("articles")
+      .select("id", { count: "exact", head: true })
+      .eq("category", topic)
+      .gte("fetched_at", `${today}T00:00:00Z`);
+    await supabase
+      .from("daily_topic_volume")
+      .upsert({ day: today, topic, count: count ?? 0 }, { onConflict: "day,topic" });
+  }
+  console.log("Snapshot enregistré.");
 }
 
 main().catch((e) => {

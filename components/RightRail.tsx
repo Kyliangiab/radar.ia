@@ -1,6 +1,27 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { FluxView } from "@/lib/types";
+
+type StatsResp = {
+  hasHistory: boolean;
+  overallVariation: number;
+  series: { day: string; count: number }[];
+  topics: { topic: string; label: string; last7: number; prev7: number; variation: number }[];
+};
+
+// Génère les tracés (ligne + aire) d'une sparkline à partir des volumes.
+function sparkPaths(counts: number[]) {
+  const n = counts.length;
+  if (n < 2) return null;
+  const max = Math.max(...counts);
+  const min = Math.min(...counts);
+  const rng = max - min || 1;
+  const x = (i: number) => (i / (n - 1)) * 200;
+  const y = (c: number) => 57 - ((c - min) / rng) * 48;
+  const line = counts.map((c, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(c).toFixed(1)}`).join(" ");
+  return { line, area: `${line} L 200 60 L 0 60 Z` };
+}
 
 /**
  * Rail droit "ambient" du design 4a (340px).
@@ -19,6 +40,18 @@ export function RightRail({
 }) {
   const isSources = flux === "sources";
   const isTrends = flux === "tendances";
+
+  const [stats, setStats] = useState<StatsResp | null>(null);
+  useEffect(() => {
+    if (flux !== "tendances") return;
+    fetch("/api/stats")
+      .then((r) => r.json())
+      .then(setStats)
+      .catch(() => {});
+  }, [flux]);
+  const hasHist = !!stats?.hasHistory;
+  const overall = hasHist ? stats!.overallVariation : 47;
+  const spark = hasHist ? sparkPaths(stats!.series.map((s) => s.count)) : null;
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto bg-[#F8EEDA] px-6 py-7 dark:bg-[#201A18]">
@@ -69,21 +102,29 @@ export function RightRail({
             <RailLabel dot="#FF5A47">Aperçu · 7 jours</RailLabel>
             <div className="rounded-[16px] bg-[#1A0A08] p-[22px] text-[#FFF7EA]">
               <div className="text-[46px] font-bold leading-none tracking-[-0.035em] text-primary">
-                + 47 %
+                {overall >= 0 ? "+ " : "− "}
+                {Math.abs(overall)} %
               </div>
               <div className="mt-2 text-[12px] leading-[1.45] text-[#FFF7EA]/60">
-                de volume vs la semaine dernière — poussée surtout par les agents autonomes et l'edge.
+                {hasHist
+                  ? `de volume vs la semaine précédente${
+                      stats!.topics[0]?.variation > 0 ? ` — porté surtout par ${stats!.topics[0].label}.` : "."
+                    }`
+                  : "de volume vs la semaine dernière — poussée surtout par les agents autonomes et l'edge."}
               </div>
               <div className="mt-4 h-[60px]">
                 <svg viewBox="0 0 200 60" preserveAspectRatio="none" className="h-full w-full">
                   <path
-                    d="M0 45 Q 25 40 40 38 T 80 30 T 120 24 T 160 14 T 200 6"
+                    d={spark?.line ?? "M0 45 Q 25 40 40 38 T 80 30 T 120 24 T 160 14 T 200 6"}
                     fill="none"
                     stroke="#FF5A47"
                     strokeWidth="2"
                   />
                   <path
-                    d="M0 45 Q 25 40 40 38 T 80 30 T 120 24 T 160 14 T 200 6 L 200 60 L 0 60 Z"
+                    d={
+                      spark?.area ??
+                      "M0 45 Q 25 40 40 38 T 80 30 T 120 24 T 160 14 T 200 6 L 200 60 L 0 60 Z"
+                    }
                     fill="rgba(255,90,71,.15)"
                   />
                 </svg>

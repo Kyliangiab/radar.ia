@@ -5,6 +5,13 @@ import type { Article, Briefing } from "@/lib/types";
 import { CATEGORIES } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
+type StatsResp = {
+  hasHistory: boolean;
+  overallVariation: number;
+  series: { day: string; count: number }[];
+  topics: { topic: string; label: string; last7: number; prev7: number; variation: number }[];
+};
+
 export function TendancesView({
   articles,
   briefing,
@@ -14,12 +21,18 @@ export function TendancesView({
 }) {
   const [period, setPeriod] = useState("7 j");
   const [edition, setEdition] = useState("Éd. du jour · Nº 187");
+  const [volStats, setVolStats] = useState<StatsResp | null>(null);
   useEffect(() => {
     const d = new Date();
     const dd = String(d.getDate()).padStart(2, "0");
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     setEdition(`Éd. ${dd}.${mm} · Nº 187`);
+    fetch("/api/stats")
+      .then((r) => r.json())
+      .then(setVolStats)
+      .catch(() => {});
   }, []);
+  const hasHist = !!volStats?.hasHistory;
 
   const avg =
     articles.length > 0
@@ -54,20 +67,39 @@ export function TendancesView({
   const topTags = Object.entries(byTag)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
-  const sujets =
+  const sujetsFallback =
     topTags.length >= 3
       ? topTags.map(([label, n]) => ({ label, n }))
       : breakdown.slice(0, 5).map((b) => ({ label: b.label, n: b.n }));
-  const maxSujet = sujets[0]?.n || 1;
+  const maxSujetFb = sujetsFallback[0]?.n || 1;
 
-  // "Ce qui a chuté" : les sujets les moins présents (volume le plus faible).
-  const quiet =
-    topTags.length >= 3
-      ? Object.entries(byTag)
-          .sort((a, b) => a[1] - b[1])
-          .slice(0, 3)
-          .map(([label, n]) => ({ label, n }))
-      : breakdown.slice().reverse().slice(0, 3).map((b) => ({ label: b.label, n: b.n }));
+  // Sujets qui montent — VRAIES variations si l'historique existe, sinon volume.
+  const risers = hasHist
+    ? volStats!.topics
+        .filter((t) => t.variation > 0)
+        .slice(0, 5)
+        .map((t) => ({ label: t.label, display: `+${t.variation} %`, bar: t.variation }))
+    : sujetsFallback.map((s) => ({
+        label: s.label,
+        display: String(s.n),
+        bar: Math.round((s.n / maxSujetFb) * 100),
+      }));
+  const maxBar = Math.max(1, ...risers.map((r) => r.bar));
+
+  // "Ce qui a chuté" (vrai) sinon "Le moins couvert" (volume le plus faible).
+  const fallers = hasHist
+    ? volStats!.topics
+        .filter((t) => t.variation < 0)
+        .sort((a, b) => a.variation - b.variation)
+        .slice(0, 3)
+        .map((t) => ({ label: t.label, display: `${t.variation} %`, sub: "vs 7 j préc." }))
+    : (topTags.length >= 3
+        ? Object.entries(byTag)
+            .sort((a, b) => a[1] - b[1])
+            .slice(0, 3)
+            .map(([label, n]) => ({ label, n }))
+        : breakdown.slice().reverse().slice(0, 3).map((b) => ({ label: b.label, n: b.n }))
+      ).map((q) => ({ label: q.label, display: String(q.n), sub: `art. · ${period}` }));
 
   const stats = [
     { value: String(articles.length), unit: "", label: "Articles analysés" },
@@ -77,6 +109,7 @@ export function TendancesView({
   ];
 
   const signals = [
+    hasHist && risers[0] && `${risers[0].label} en forte hausse (${risers[0].display}) sur 7 jours.`,
     briefing?.watch,
     breakdown[0] && `${breakdown[0].label} domine le flux (${breakdown[0].pct} %).`,
     topSources[0] && `${topSources[0][0]} est la source la plus active du moment.`,
@@ -134,27 +167,35 @@ export function TendancesView({
           <div className="flex items-baseline justify-between">
             <div className="text-[14px] font-semibold text-foreground">Sujets qui montent</div>
             <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-foreground/45">
-              Top {sujets.length} · {period}
+              Top {risers.length} · {period}
             </div>
           </div>
-          <div className="mb-4 text-[12px] text-foreground/45">Volume dans le flux, croisement des sources</div>
-          {sujets.map((s) => (
-            <div key={s.label} className="mb-3.5">
-              <div className="mb-1.5 flex items-baseline justify-between gap-2.5">
-                <span className="truncate text-[13.5px] font-medium text-foreground">{s.label}</span>
-                <span className="font-mono text-[13px] font-semibold text-[#4E8D6E]">{s.n}</span>
-              </div>
-              <div className="h-[7px] overflow-hidden rounded-[5px] bg-foreground/[0.08]">
-                <div
-                  className="h-full rounded-[5px]"
-                  style={{
-                    width: `${Math.round((s.n / maxSujet) * 100)}%`,
-                    background: "linear-gradient(90deg,#FF5A47,#FFB09E)",
-                  }}
-                />
-              </div>
+          <div className="mb-4 text-[12px] text-foreground/45">
+            {hasHist ? "Variation de volume vs 7 jours précédents" : "Volume dans le flux, croisement des sources"}
+          </div>
+          {risers.length === 0 ? (
+            <div className="py-4 text-[12.5px] text-foreground/45">
+              Aucune hausse détectée sur la période.
             </div>
-          ))}
+          ) : (
+            risers.map((s) => (
+              <div key={s.label} className="mb-3.5">
+                <div className="mb-1.5 flex items-baseline justify-between gap-2.5">
+                  <span className="truncate text-[13.5px] font-medium text-foreground">{s.label}</span>
+                  <span className="font-mono text-[13px] font-semibold text-[#4E8D6E]">{s.display}</span>
+                </div>
+                <div className="h-[7px] overflow-hidden rounded-[5px] bg-foreground/[0.08]">
+                  <div
+                    className="h-full rounded-[5px]"
+                    style={{
+                      width: `${Math.round((s.bar / maxBar) * 100)}%`,
+                      background: "linear-gradient(90deg,#FF5A47,#FFB09E)",
+                    }}
+                  />
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         <div className="rounded-[14px] border border-border bg-card p-[22px_24px]">
@@ -230,23 +271,23 @@ export function TendancesView({
         </div>
       </div>
 
-      {/* Le moins couvert cette semaine */}
-      {quiet.length > 0 && (
+      {/* Ce qui a chuté (vrai) / Le moins couvert (repli) */}
+      {fallers.length > 0 && (
         <div className="mt-[18px] rounded-[14px] border border-border bg-card p-[22px_24px]">
           <div className="mb-4 flex items-baseline justify-between">
             <div className="text-[14px] font-semibold text-foreground">
-              Le moins couvert cette semaine
+              {hasHist ? "Ce qui a chuté cette semaine" : "Le moins couvert cette semaine"}
             </div>
             <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-foreground/45">
               Volume ↓
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {quiet.map((q) => (
+            {fallers.map((q) => (
               <div key={q.label} className="rounded-[11px] bg-foreground/[0.04] p-[14px_16px]">
                 <div className="mb-1 flex items-baseline gap-2">
-                  <span className="text-[22px] font-bold tracking-[-0.02em] text-[#C8663A]">{q.n}</span>
-                  <span className="font-mono text-[11px] text-foreground/45">art. · {period}</span>
+                  <span className="text-[22px] font-bold tracking-[-0.02em] text-[#C8663A]">{q.display}</span>
+                  <span className="font-mono text-[11px] text-foreground/45">{q.sub}</span>
                 </div>
                 <div className="truncate text-[12.5px] font-medium text-foreground">{q.label}</div>
               </div>

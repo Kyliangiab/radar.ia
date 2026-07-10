@@ -216,14 +216,21 @@ export default function Home() {
         g = (d.sources ?? []).length;
       } catch {}
       let u = 0;
+      let removed = 0;
       const sb = getSupabaseBrowser();
       if (sb) {
         const { count } = await sb
           .from("user_sources")
           .select("id", { count: "exact", head: true });
         u = count ?? 0;
+        // Globales retirées par l'utilisateur (préférences persistées).
+        const { count: rem } = await sb
+          .from("user_source_prefs")
+          .select("source_id", { count: "exact", head: true })
+          .eq("removed", true);
+        removed = rem ?? 0;
       }
-      if (alive) setSourcesTotal(g + u);
+      if (alive) setSourcesTotal(Math.max(0, g + u - removed));
     })();
     return () => {
       alive = false;

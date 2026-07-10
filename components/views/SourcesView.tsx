@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import type { Article, CategoryId } from "@/lib/types";
 import { categoryColor, CATEGORY_MAP } from "@/lib/categories";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { listSourcePrefs, setSourcePref } from "@/lib/sourcePrefs";
 import { ScanOverlay } from "@/components/ScanOverlay";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
   const [filter, setFilter] = useState<"all" | "active" | "paused">("all");
   const [paused, setPaused] = useState<Set<string>>(new Set());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [uid, setUid] = useState<string | null>(null);
 
   async function loadMine() {
     const sb = getSupabaseBrowser();
@@ -59,6 +61,14 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
       .then((d) => setGlobals(d.sources ?? []))
       .catch(() => {});
     loadMine();
+    // Préférences persistées (pause / retrait par utilisateur).
+    (async () => {
+      const sb = getSupabaseBrowser();
+      setUid((await sb?.auth.getUser())?.data.user?.id ?? null);
+      const prefs = await listSourcePrefs();
+      setPaused(new Set(prefs.filter((p) => p.paused).map((p) => p.source_id)));
+      setHidden(new Set(prefs.filter((p) => p.removed).map((p) => p.source_id)));
+    })();
   }, []);
 
   async function add() {
@@ -141,6 +151,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
       else next.add(id);
       return next;
     });
+    if (uid) setSourcePref(uid, id, { paused: willPause });
     toast(willPause ? "Source mise en pause" : "Source réactivée", {
       icon: willPause ? "⏸" : "▶",
       color: willPause ? "#C8663A" : "#4E8D6E",
@@ -151,6 +162,7 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
     if (s.kind === "user") removeUser(s.id);
     else {
       setHidden((p) => new Set(p).add(s.id));
+      if (uid) setSourcePref(uid, s.id, { removed: true });
       toast("Source retirée", { icon: "✕", color: "#C8663A" });
     }
   }
