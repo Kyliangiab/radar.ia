@@ -282,6 +282,7 @@ export default function Home() {
       savedCount={saved.size}
       domainCounts={domainCounts}
       sourcesCount={sourcesTotal ?? sourcesCount}
+      articlesCount={articles.length}
       user={account}
       onLogout={logout}
       onResults={(arts, q) => {

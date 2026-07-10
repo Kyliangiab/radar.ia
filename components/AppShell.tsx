@@ -15,6 +15,7 @@ export function AppShell({
   savedCount,
   domainCounts,
   sourcesCount,
+  articlesCount,
   user,
   onLogout,
   onResults,
@@ -28,6 +29,7 @@ export function AppShell({
   savedCount: number;
   domainCounts?: Partial<Record<CategoryId, number>>;
   sourcesCount?: number;
+  articlesCount?: number;
   user: AccountUser;
   onLogout: () => void;
   onResults: (articles: Article[], query: string) => void;
@@ -82,7 +84,7 @@ export function AppShell({
 
       {/* Rail droit "En direct" (xl+) */}
       <aside className="hidden h-screen xl:block">
-        <RightRail flux={flux} />
+        <RightRail flux={flux} sourcesCount={sourcesCount} feedCount={articlesCount} />
       </aside>
 
       <Toaster />
