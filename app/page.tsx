@@ -218,6 +218,15 @@ export default function Home() {
   );
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
+  // Libellé d'édition daté (client → évite le mismatch d'hydratation).
+  const [edition, setEdition] = useState("Éd. du jour · Nº 187");
+  useEffect(() => {
+    const d = new Date();
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    setEdition(`Éd. ${dd}.${mm} · Nº 187`);
+  }, []);
+
   const onDomain = useCallback((c: CategoryId) => {
     setResults(null);
     setDomain((prev) => (prev === c ? "all" : c));
@@ -307,12 +316,12 @@ export default function Home() {
           {flux === "fil" && (
             <div className="mb-3 flex items-center gap-3">
               <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-primary" />
-              <span className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-primary">
-                Le fil du jour
+              <span className="truncate font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-primary">
+                Le fil du jour · {edition}
               </span>
               <span className="h-px flex-1 bg-border" />
-              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-foreground/40">
-                {readInFeed} / {feedList.length} lus
+              <span className="whitespace-nowrap font-mono text-[10.5px] uppercase tracking-[0.1em] text-foreground/40">
+                {readInFeed} / {feedList.length} lus · ≈ {readInFeed * 2} min
               </span>
             </div>
           )}
@@ -379,6 +388,13 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {flux === "fil" && (
+            <p className="-mt-2 mb-[30px] max-w-[660px] text-[14.5px] leading-[1.55] text-foreground/60">
+              Chaque article <b className="font-semibold text-foreground">résumé par Radar</b>. 2 min
+              pour tout parcourir. Le lien vers la source reste à un clic si tu veux creuser.
+            </p>
+          )}
 
           {flux === "fil" && (
             <BriefBanner
