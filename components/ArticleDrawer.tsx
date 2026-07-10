@@ -241,9 +241,9 @@ export function ArticleDrawer({
         </h2>
         <div className="mb-[18px]">
           {!origIsFrench && lang === "fr" && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-foreground/45">
-              <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
-              Titre original · Anglais
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#4E8D6E]/[0.14] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[#4E8D6E]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#4E8D6E]" />
+              {translating ? "Traduction…" : "Traduit par Radar"}
               {translating && <Loader2 size={10} className="animate-spin" />}
             </span>
           )}

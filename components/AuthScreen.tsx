@@ -26,6 +26,7 @@ export function AuthScreen() {
   const [edition, setEdition] = useState("");
   const [stats, setStats] = useState<StatsResp | null>(null);
   const [tr, setTr] = useState<{ hero?: string; descs?: string[] }>({});
+  const [newsLang, setNewsLang] = useState<"vo" | "fr">("fr");
 
   useEffect(() => {
     setEdition(editionInfo().label);
@@ -132,10 +133,14 @@ export function AuthScreen() {
     { n: "03", topic: "biz", label: "Business", color: "#4E8D6E", desc: "Fundraise Series A ↑ 22 %" },
   ];
 
-  // Contenu dynamique du panneau éditorial (vraies données, traduites en FR).
+  // Contenu dynamique du panneau éditorial (vraies données). Traduit en FR
+  // si newsLang === "fr" et qu'une traduction est dispo, sinon langue d'origine.
+  const isFr = newsLang === "fr";
   const rawPanels = stats?.panels?.length ? stats.panels : FALLBACK_PANELS;
-  const panels = rawPanels.map((p, i) => ({ ...p, desc: tr.descs?.[i] ?? p.desc }));
-  const headline = tr.hero || stats?.headline || "Les modèles < 3 B rattrapent GPT-4.";
+  const rawHeadline = stats?.headline || "Les modèles < 3 B rattrapent GPT-4.";
+  const headline = isFr ? tr.hero || rawHeadline : rawHeadline;
+  const panels = rawPanels.map((p, i) => ({ ...p, desc: isFr ? tr.descs?.[i] ?? p.desc : p.desc }));
+  const isTranslated = isFr && !!tr.hero; // vraie traduction affichée
   const articleCount = stats?.articleCount;
 
   return (
@@ -171,14 +176,39 @@ export function AuthScreen() {
 
           {/* Éditorial centré */}
           <div className="relative flex max-w-[640px] flex-1 flex-col justify-center" style={{ animation: "radFloatIn .6s ease-out both" }}>
-            <div className="mb-8 inline-flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
-              <span className="h-2 w-2 animate-pulseDot rounded-full bg-primary" />
-              Ce matin dans le brief
+            <div className="mb-8 flex items-center justify-between gap-3">
+              <div className="inline-flex items-center gap-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+                <span className="h-2 w-2 animate-pulseDot rounded-full bg-primary" />
+                Ce matin dans le brief
+              </div>
+              <div className="flex gap-0.5 rounded-full bg-[#FFF7EA]/[0.08] p-[3px]">
+                {(["vo", "fr"] as const).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setNewsLang(l)}
+                    className={
+                      "rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] transition-colors " +
+                      (newsLang === l ? "bg-primary text-white" : "text-[#FFF7EA]/55 hover:text-[#FFF7EA]")
+                    }
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <h1 className="mb-7 text-[clamp(40px,4vw,68px)] font-bold leading-[1] tracking-[-0.035em] [text-wrap:balance]">
+            <h1 className="mb-4 text-[clamp(40px,4vw,68px)] font-bold leading-[1] tracking-[-0.035em] [text-wrap:balance]">
               {headline}
             </h1>
+
+            <div className="mb-7 h-[26px]">
+              {isTranslated && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#4E8D6E]/[0.16] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#6FB894]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#4E8D6E]" />
+                  Traduit par Radar
+                </span>
+              )}
+            </div>
 
             <p className="mb-11 max-w-[520px] text-[clamp(15px,1.15vw,17px)] leading-[1.55] text-[#FFF7EA]/[0.66]">
               Radar lit, dédoublonne et résume les sources en continu — tu ouvres, tu as le signal du
