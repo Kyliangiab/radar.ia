@@ -34,7 +34,13 @@ function prettyType(type: string, category: string) {
   return `${kind} · ${cat}`;
 }
 
-export function SourcesView({ articles = [] }: { articles?: Article[] }) {
+export function SourcesView({
+  articles = [],
+  onSourceAdded,
+}: {
+  articles?: Article[];
+  onSourceAdded?: () => void;
+}) {
   const [globals, setGlobals] = useState<GlobalSource[]>([]);
   const [mine, setMine] = useState<UserSource[]>([]);
   const [url, setUrl] = useState("");
@@ -117,8 +123,14 @@ export function SourcesView({ articles = [] }: { articles?: Article[] }) {
       } else {
         setUrl("");
         setNote(`« ${d.name} » ajoutée — ${d.count} article${d.count > 1 ? "s" : ""} collecté${d.count > 1 ? "s" : ""}.`);
-        toast(`Source ajoutée · ${d.name}`, { icon: "+", color: "#4E8D6E" });
+        toast(
+          d.count > 0
+            ? `Source ajoutée · ${d.count} article${d.count > 1 ? "s" : ""} dans ton fil`
+            : `Source ajoutée · ${d.name} (aucun article récent)`,
+          { icon: "+", color: "#4E8D6E" },
+        );
         await loadUserData();
+        onSourceAdded?.(); // rafraîchit le fil principal (nouveaux articles)
       }
     } catch {
       setError("Ajout impossible. Réessaie.");

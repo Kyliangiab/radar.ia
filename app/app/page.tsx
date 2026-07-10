@@ -378,7 +378,10 @@ export default function Home() {
           onGenerate={() => generateBriefing(articles)}
         />
       ) : flux === "sources" ? (
-        <SourcesView articles={articles} />
+        <SourcesView
+          articles={articles}
+          onSourceAdded={() => session && load(session.user.id)}
+        />
       ) : flux === "tendances" ? (
         <TendancesView articles={articles} briefing={briefing} />
       ) : (
