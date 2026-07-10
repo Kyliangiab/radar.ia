@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BRAND } from "@/config/brand";
+import { AuthRedirect } from "@/components/AuthRedirect";
 
 /**
  * Landing publique de Radar (racine « / »). L'appli vit sous « /app ».
@@ -129,6 +130,7 @@ const SOURCES = [
 export default function Landing() {
   return (
     <div style={{ background: CREAM, color: INK }} className="min-h-screen font-sans">
+      <AuthRedirect />
       <style
         dangerouslySetInnerHTML={{
           __html: `
