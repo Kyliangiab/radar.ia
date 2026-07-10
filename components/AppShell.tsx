@@ -74,7 +74,9 @@ export function AppShell({
           onClearSearch={onClearSearch}
           onBurger={() => setMobileOpen(true)}
         />
-        <main className="flex-1 overflow-y-auto px-4 pb-11 pt-7 sm:px-9">{children}</main>
+        <main className="flex-1 overflow-y-auto px-4 pb-11 pt-7 [scrollbar-gutter:stable] sm:px-9">
+          {children}
+        </main>
       </div>
 
       {/* Rail droit "En direct" (xl+) */}
