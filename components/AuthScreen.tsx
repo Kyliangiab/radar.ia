@@ -25,11 +25,31 @@ export function AuthScreen() {
   const [info, setInfo] = useState<string | null>(null);
   const [edition, setEdition] = useState("");
   const [stats, setStats] = useState<StatsResp | null>(null);
+  const [tr, setTr] = useState<{ hero?: string; descs?: string[] }>({});
 
   useEffect(() => {
     setEdition(editionInfo().label);
     fetchStats().then(setStats);
   }, []);
+
+  // Traduit en français le hero + les descriptions (titres sources en anglais).
+  useEffect(() => {
+    if (!stats) return;
+    const texts = [stats.headline ?? "", ...(stats.panels ?? []).map((p) => p.desc)];
+    if (!texts.some(Boolean)) return;
+    fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texts }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.texts) && d.texts.length === texts.length) {
+          setTr({ hero: d.texts[0], descs: d.texts.slice(1) });
+        }
+      })
+      .catch(() => {});
+  }, [stats]);
 
   const isRegister = mode === "register";
   // URL de redirection d'auth : URL canonique de prod si définie (Vercel),
@@ -112,14 +132,15 @@ export function AuthScreen() {
     { n: "03", topic: "biz", label: "Business", color: "#4E8D6E", desc: "Fundraise Series A ↑ 22 %" },
   ];
 
-  // Contenu dynamique du panneau éditorial (vraies données).
-  const panels = stats?.panels?.length ? stats.panels : FALLBACK_PANELS;
-  const headline = stats?.headline || "Les modèles < 3 B rattrapent GPT-4.";
+  // Contenu dynamique du panneau éditorial (vraies données, traduites en FR).
+  const rawPanels = stats?.panels?.length ? stats.panels : FALLBACK_PANELS;
+  const panels = rawPanels.map((p, i) => ({ ...p, desc: tr.descs?.[i] ?? p.desc }));
+  const headline = tr.hero || stats?.headline || "Les modèles < 3 B rattrapent GPT-4.";
   const articleCount = stats?.articleCount;
 
   return (
     <>
-      <style>{`@keyframes radFloatIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes radLogoSweep{0%{transform:translate(-50%,-50%) rotate(0)}100%{transform:translate(-50%,-50%) rotate(360deg)}}`}</style>
+      <style>{`@keyframes radFloatIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
       <div className="flex h-screen w-full overflow-hidden bg-[#FFF7EA] font-sans">
         {/* ── Panneau éditorial (gauche) ── */}
@@ -127,14 +148,18 @@ export function AuthScreen() {
           <div className="pointer-events-none absolute -right-36 -top-36 h-[520px] w-[520px] rounded-full" style={{ background: "radial-gradient(circle,rgba(255,90,71,.16),transparent 65%)" }} />
           <div className="pointer-events-none absolute -bottom-24 -left-24 h-[360px] w-[360px] rounded-full" style={{ background: "radial-gradient(circle,rgba(255,90,71,.08),transparent 65%)" }} />
 
-          {/* Logo */}
+          {/* Logo — carré corail + balayage radar qui tourne (comme le sidebar) */}
           <div className="relative flex flex-none items-center gap-3.5">
             <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-[13px] bg-primary">
-              <div className="h-4 w-4 rounded-full border-[3px] border-[#1A0A08]" />
-              <div
-                className="absolute left-1/2 top-1/2 h-px w-full origin-left"
-                style={{ background: "linear-gradient(90deg,transparent,#1A0A08)", animation: "radLogoSweep 3s linear infinite" }}
+              <span
+                className="absolute inset-0 animate-sweep"
+                style={{
+                  background:
+                    "conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(26,10,8,.6) 355deg, transparent 360deg)",
+                }}
               />
+              <span className="absolute h-4 w-4 rounded-full border-[3px] border-[#1A0A08]" />
+              <span className="absolute h-[3px] w-[3px] rounded-full bg-[#1A0A08]" />
             </div>
             <div>
               <div className="text-[21px] font-bold leading-none tracking-[-0.014em]">{BRAND.name}</div>
