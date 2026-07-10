@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { Article, CategoryId, FluxView } from "@/lib/types";
+import type { Notif } from "@/lib/notifications";
+import type { StatsResp } from "@/lib/stats";
 import { Sidebar, type AccountUser } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { RightRail } from "./RightRail";
@@ -16,6 +18,8 @@ export function AppShell({
   domainCounts,
   sourcesCount,
   articlesCount,
+  notifs = [],
+  stats = null,
   user,
   onLogout,
   onResults,
@@ -30,6 +34,8 @@ export function AppShell({
   domainCounts?: Partial<Record<CategoryId, number>>;
   sourcesCount?: number;
   articlesCount?: number;
+  notifs?: Notif[];
+  stats?: StatsResp | null;
   user: AccountUser;
   onLogout: () => void;
   onResults: (articles: Article[], query: string) => void;
@@ -76,6 +82,7 @@ export function AppShell({
           onResults={onResults}
           onClearSearch={onClearSearch}
           onBurger={() => setMobileOpen(true)}
+          notifs={notifs}
         />
         <main className="flex-1 overflow-y-auto px-4 pb-11 pt-7 [scrollbar-gutter:stable] sm:px-9">
           {children}
@@ -84,7 +91,7 @@ export function AppShell({
 
       {/* Rail droit "En direct" (xl+) */}
       <aside className="hidden h-screen xl:block">
-        <RightRail flux={flux} sourcesCount={sourcesCount} feedCount={articlesCount} />
+        <RightRail flux={flux} sourcesCount={sourcesCount} feedCount={articlesCount} stats={stats} />
       </aside>
 
       <Toaster />

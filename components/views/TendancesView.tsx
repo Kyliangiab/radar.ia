@@ -3,14 +3,9 @@
 import { useEffect, useState } from "react";
 import type { Article, Briefing } from "@/lib/types";
 import { CATEGORIES } from "@/lib/categories";
+import { editionInfo } from "@/lib/edition";
+import { fetchStats, type StatsResp } from "@/lib/stats";
 import { cn } from "@/lib/utils";
-
-type StatsResp = {
-  hasHistory: boolean;
-  overallVariation: number;
-  series: { day: string; count: number }[];
-  topics: { topic: string; label: string; last7: number; prev7: number; variation: number }[];
-};
 
 export function TendancesView({
   articles,
@@ -23,14 +18,8 @@ export function TendancesView({
   const [edition, setEdition] = useState("Éd. du jour · Nº 187");
   const [volStats, setVolStats] = useState<StatsResp | null>(null);
   useEffect(() => {
-    const d = new Date();
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    setEdition(`Éd. ${dd}.${mm} · Nº 187`);
-    fetch("/api/stats")
-      .then((r) => r.json())
-      .then(setVolStats)
-      .catch(() => {});
+    setEdition(editionInfo().label);
+    fetchStats().then(setVolStats);
   }, []);
   const hasHist = !!volStats?.hasHistory;
 

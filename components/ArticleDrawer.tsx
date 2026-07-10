@@ -5,6 +5,8 @@ import { X, Bookmark, Check, Share2, Loader2, ArrowUpRight } from "lucide-react"
 import type { Article, CategoryId } from "@/lib/types";
 import { categoryColor, CATEGORY_MAP } from "@/lib/categories";
 import { timeAgo, hostOf } from "@/lib/format";
+import { toast } from "@/lib/toast";
+import { copyText } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { RelevancePill } from "./RelevancePill";
 
@@ -86,16 +88,51 @@ export function ArticleDrawer({
   const host = hostOf(a.url);
   const body = mode === "court" ? a.snippet || a.summary || "" : a.summary || a.snippet || "";
 
-  function ask(q: string) {
+  async function ask(q: string) {
     const query = q.trim();
     if (!query) return;
     setAskQ(query);
     setAskLoading(true);
     setAskAnswer("");
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: a.title,
+          source: a.source,
+          snippet: a.snippet ?? "",
+          summary: a.summary ?? "",
+          question: query,
+        }),
+      });
+      const d = await res.json();
+      setAskAnswer(
+        d?.answer ||
+          `Radar n'a pas pu répondre pour l'instant. Ouvre la source (${a.source}) pour creuser.`,
+      );
+    } catch {
+      setAskAnswer(`Réponse indisponible. Ouvre la source (${a.source}) pour creuser.`);
+    } finally {
       setAskLoading(false);
-      setAskAnswer(cannedAnswer(a, query));
-    }, 800);
+    }
+  }
+
+  async function shareArticle() {
+    const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (d: ShareData) => Promise<void> }) : null;
+    if (nav?.share) {
+      try {
+        await nav.share({ title: a.title, url: a.url });
+        return;
+      } catch {
+        /* annulé → repli copie */
+      }
+    }
+    const ok = await copyText(a.url);
+    toast(ok ? "Lien de l'article copié" : "Copie impossible", {
+      icon: ok ? "✓" : "!",
+      color: ok ? "#4E8D6E" : "#C8663A",
+    });
   }
 
   return (
@@ -159,7 +196,10 @@ export function ArticleDrawer({
             {saved ? <Check size={15} /> : <Bookmark size={15} />}
             {saved ? "Enregistré" : "Enregistrer"}
           </button>
-          <button className="flex items-center justify-center gap-1.5 rounded-[9px] border border-border bg-card p-[10px_14px] text-[12px] font-semibold text-foreground hover:bg-muted">
+          <button
+            onClick={shareArticle}
+            className="flex items-center justify-center gap-1.5 rounded-[9px] border border-border bg-card p-[10px_14px] text-[12px] font-semibold text-foreground hover:bg-muted"
+          >
             <Share2 size={14} /> Partager
           </button>
         </div>
@@ -323,17 +363,4 @@ export function ArticleDrawer({
       </aside>
     </div>
   );
-}
-
-function cannedAnswer(a: Article, q: string): string {
-  const ql = q.toLowerCase();
-  const src = a.source;
-  const base = a.summary || a.snippet || a.title;
-  if (/(impact|équipe|team|action|faire)/.test(ql))
-    return `Pour ton équipe : ${base} Radar te conseille de suivre les prochaines publications de ${src} sur ce sujet.`;
-  if (/(chiffre|combien|%|coût|prix|montant)/.test(ql))
-    return `Les chiffres clés viennent de ${src}. Vérifie-les sur au moins deux sources avant de les citer — Radar croise quand c'est possible.`;
-  if (/(concurrent|rival|acteur|alternative)/.test(ql))
-    return `Acteur principal cité : ${src}. Regarde « Aussi couvert par » ci-dessus pour les angles complémentaires.`;
-  return `Voici comment Radar lit ce sujet : ${base} Ouvre la source (${src}) pour creuser.`;
 }

@@ -5,6 +5,8 @@ import { Loader2, Sparkles, Share2, Link2, Hash, Mail, FileDown, X } from "lucid
 import type { Article, Briefing } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { CATEGORIES } from "@/lib/categories";
+import { toast } from "@/lib/toast";
+import { briefToText, copyText, emailBrief, printBrief } from "@/lib/share";
 
 // Thèmes des 3 signaux (design 4a) : Data & IA · Tech · Business.
 const HL = [
@@ -94,14 +96,47 @@ export function BriefView({
                   icon={<Link2 size={14} />}
                   color="#FF5A47"
                   label="Copier le lien"
-                  onClick={() => {
-                    navigator.clipboard?.writeText(window.location.href).catch(() => {});
+                  onClick={async () => {
+                    const ok = await copyText(window.location.href);
+                    toast(ok ? "Lien copié" : "Copie impossible", {
+                      icon: ok ? "✓" : "!",
+                      color: ok ? "#4E8D6E" : "#C8663A",
+                    });
                     setShareOpen(false);
                   }}
                 />
-                <ShareItem icon={<Hash size={14} />} color="#4E8D6E" label="Envoyer sur Slack" onClick={() => setShareOpen(false)} />
-                <ShareItem icon={<Mail size={14} />} color="#C8663A" label="Par email" onClick={() => setShareOpen(false)} />
-                <ShareItem icon={<FileDown size={14} />} color="#8E5FB8" label="Télécharger en PDF" onClick={() => setShareOpen(false)} />
+                <ShareItem
+                  icon={<Hash size={14} />}
+                  color="#4E8D6E"
+                  label="Copier pour Slack"
+                  onClick={async () => {
+                    if (!briefing) return;
+                    const ok = await copyText(briefToText(briefing, numbers));
+                    toast(ok ? "Brief copié — colle-le dans Slack" : "Copie impossible", {
+                      icon: ok ? "✓" : "!",
+                      color: ok ? "#4E8D6E" : "#C8663A",
+                    });
+                    setShareOpen(false);
+                  }}
+                />
+                <ShareItem
+                  icon={<Mail size={14} />}
+                  color="#C8663A"
+                  label="Par email"
+                  onClick={() => {
+                    if (briefing) emailBrief(briefing, numbers);
+                    setShareOpen(false);
+                  }}
+                />
+                <ShareItem
+                  icon={<FileDown size={14} />}
+                  color="#8E5FB8"
+                  label="Télécharger en PDF"
+                  onClick={() => {
+                    if (briefing) printBrief(briefing, numbers);
+                    setShareOpen(false);
+                  }}
+                />
               </div>
             </>
           )}
@@ -149,7 +184,9 @@ export function BriefView({
                 Radar · signal du jour
               </div>
               <div className="text-[24px] font-bold leading-[1.15] text-white">
-                Ce qui ressort du flux, en un coup d'œil.
+                {briefing.headline
+                  ? `« ${briefing.headline} »`
+                  : "Ce qui ressort du flux, en un coup d'œil."}
               </div>
             </div>
           </div>

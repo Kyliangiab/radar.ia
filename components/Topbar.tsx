@@ -1,25 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Menu, Loader2 } from "lucide-react";
 import type { Article } from "@/lib/types";
+import type { Notif } from "@/lib/notifications";
 import { ThemeToggle } from "./ThemeToggle";
 
-const NOTIFS = [
-  { icon: "✦", title: "Ton brief du jour est prêt", sub: "3 signaux à retenir", when: "il y a 4 h", color: "#FF5A47" },
-  { icon: "↑", title: "Sujet en accélération", sub: "« Agents autonomes » · +142 % cette semaine", when: "il y a 2 h", color: "#4E8D6E" },
-  { icon: "⧉", title: "The Batch a publié 3 articles", sub: "Data / IA · à revoir dans ton fil", when: "il y a 1 h", color: "#8E5FB8" },
-  { icon: "⏳", title: "2 sources en attente", sub: "Retry auto dans 3 min", when: "il y a 30 min", color: "rgba(26,10,8,.55)" },
-];
+const SEEN_KEY = "radar:seen-notifs";
 
 export function Topbar({
   onResults,
   onClearSearch,
   onBurger,
+  notifs = [],
 }: {
   onResults: (articles: Article[], query: string) => void;
   onClearSearch: () => void;
   onBurger: () => void;
+  notifs?: Notif[];
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
@@ -27,6 +25,32 @@ export function Topbar({
   const [note, setNote] = useState<string | null>(null);
   const [now, setNow] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
+  const [seen, setSeen] = useState<Set<string>>(new Set());
+
+  // État « déjà vu » persisté (comportement d'une vraie boîte de notifications).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SEEN_KEY);
+      if (raw) setSeen(new Set(JSON.parse(raw) as string[]));
+    } catch {}
+  }, []);
+
+  const unread = useMemo(() => notifs.filter((n) => !seen.has(n.id)).length, [notifs, seen]);
+
+  function openNotifs() {
+    setNotifOpen((v) => {
+      const next = !v;
+      if (next && notifs.length) {
+        const merged = new Set(seen);
+        notifs.forEach((n) => merged.add(n.id));
+        setSeen(merged);
+        try {
+          localStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(merged)));
+        } catch {}
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     const tick = () =>
@@ -142,13 +166,15 @@ export function Topbar({
 
           <div className="relative">
             <button
-              onClick={() => setNotifOpen((v) => !v)}
+              onClick={openNotifs}
               aria-label="Notifications"
               className="grid h-9 w-9 place-items-center rounded-[10px] border border-border bg-card transition-colors hover:bg-muted"
             >
               <span className="relative text-[16px] leading-none">
                 🔔
-                <span className="absolute -right-1.5 -top-1 h-[6px] w-[6px] rounded-full bg-primary ring-2 ring-card" />
+                {unread > 0 && (
+                  <span className="absolute -right-1.5 -top-1 h-[6px] w-[6px] rounded-full bg-primary ring-2 ring-card" />
+                )}
               </span>
             </button>
             {notifOpen && (
@@ -160,31 +186,41 @@ export function Topbar({
                       Notifications
                     </span>
                     <span className="ml-auto font-mono text-[10px] font-semibold text-primary">
-                      04 nouveaux
+                      {unread > 0
+                        ? `${String(unread).padStart(2, "0")} nouveau${unread > 1 ? "x" : ""}`
+                        : "à jour"}
                     </span>
                   </div>
-                  {NOTIFS.map((n, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-2.5 rounded-[10px] px-3 py-2.5 transition-colors hover:bg-foreground/[0.04]"
-                    >
-                      <span
-                        className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full text-[12px] font-bold"
-                        style={{ background: `${n.color}22`, color: n.color }}
-                      >
-                        {n.icon}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[12.5px] font-semibold leading-[1.3] text-foreground">
-                          {n.title}
-                        </div>
-                        <div className="text-[11px] leading-[1.35] text-foreground/55">{n.sub}</div>
-                      </div>
-                      <span className="whitespace-nowrap pt-0.5 font-mono text-[9.5px] text-foreground/40">
-                        {n.when}
-                      </span>
+                  {notifs.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-[12px] text-foreground/45">
+                      Rien de neuf — reviens après la prochaine synchro.
                     </div>
-                  ))}
+                  ) : (
+                    notifs.map((n) => (
+                      <div
+                        key={n.id}
+                        className="flex items-start gap-2.5 rounded-[10px] px-3 py-2.5 transition-colors hover:bg-foreground/[0.04]"
+                      >
+                        <span
+                          className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full text-[12px] font-bold"
+                          style={{ background: `${n.color}22`, color: n.color }}
+                        >
+                          {n.icon}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[12.5px] font-semibold leading-[1.3] text-foreground">
+                            {n.title}
+                          </div>
+                          <div className="text-[11px] leading-[1.35] text-foreground/55">{n.sub}</div>
+                        </div>
+                        {n.when && (
+                          <span className="whitespace-nowrap pt-0.5 font-mono text-[9.5px] text-foreground/40">
+                            {n.when}
+                          </span>
+                        )}
+                      </div>
+                    ))
+                  )}
                   <div className="mt-1 flex items-center gap-2 border-t border-border px-3 pb-1 pt-2.5 font-mono text-[10px] uppercase tracking-[0.06em] text-foreground/40">
                     <span className="h-[6px] w-[6px] rounded-full bg-[#4E8D6E]" />
                     Notifié 5 min avant chaque brief

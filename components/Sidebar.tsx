@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { BRAND } from "@/config/brand";
 import { CATEGORIES, RAMP } from "@/lib/categories";
+import { editionInfo } from "@/lib/edition";
 import type { CategoryId, FluxView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
@@ -66,10 +67,7 @@ export function Sidebar({
 
   // Libellé d'édition daté (côté client pour éviter le mismatch d'hydratation).
   useEffect(() => {
-    const d = new Date();
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    setEdition(`Éd. ${dd}.${mm} · Nº 187`);
+    setEdition(editionInfo().label);
   }, []);
 
   return (

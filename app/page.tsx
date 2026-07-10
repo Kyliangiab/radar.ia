@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { Article, Briefing, CategoryId, Density, FluxView } from "@/lib/types";
 import { toast } from "@/lib/toast";
 import { CATEGORY_MAP } from "@/lib/categories";
+import { editionInfo } from "@/lib/edition";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/AppShell";
 import { Feed } from "@/components/Feed";
@@ -14,6 +15,8 @@ import { AuthScreen } from "@/components/AuthScreen";
 import type { AccountUser } from "@/components/Sidebar";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { listSaved, addSaved, removeSaved } from "@/lib/saved";
+import { fetchStats, type StatsResp } from "@/lib/stats";
+import { buildNotifications } from "@/lib/notifications";
 import type { Session } from "@supabase/supabase-js";
 import { BriefView } from "@/components/views/BriefView";
 import { SourcesView } from "@/components/views/SourcesView";
@@ -59,6 +62,12 @@ export default function Home() {
   const [briefingLoading, setBriefingLoading] = useState(false);
   const briefRequested = useRef(false);
 
+  // Stats de volume (variations) — alimentent notifs, rail et tendances.
+  const [stats, setStats] = useState<StatsResp | null>(null);
+  useEffect(() => {
+    if (session) fetchStats().then(setStats);
+  }, [session]);
+
   // ── Chargement du flux ──
   const load = useCallback(async (uid: string) => {
     setLoading(true);
@@ -99,11 +108,19 @@ export default function Home() {
       (u.user_metadata?.name as string) ||
       u.email ||
       "Utilisateur";
+    // Libellé de compte honnête : le fournisseur d'auth réel (Google) ou l'e-mail.
+    const provider = (u.app_metadata?.provider as string) || "";
+    const plan =
+      provider === "google"
+        ? "Connecté via Google"
+        : provider
+          ? `Connecté via ${provider}`
+          : u.email ?? "Compte connecté";
     return {
       name,
       email: u.email ?? undefined,
       initials: initialsOf(name),
-      plan: "Max · billed annually",
+      plan,
     };
   }, [session]);
 
@@ -205,6 +222,12 @@ export default function Home() {
   }, [articles]);
   const sourcesCount = useMemo(() => new Set(articles.map((a) => a.source)).size, [articles]);
 
+  // Notifications dérivées des vraies données (brief, variations, source active…).
+  const notifs = useMemo(
+    () => buildNotifications({ articles, briefing, stats, savedCount: saved.size }),
+    [articles, briefing, stats, saved],
+  );
+
   // Compteur réel de sources surveillées (globales + flux perso) pour la sidebar.
   const [sourcesTotal, setSourcesTotal] = useState<number | undefined>(undefined);
   useEffect(() => {
@@ -255,10 +278,7 @@ export default function Home() {
   // Libellé d'édition daté (client → évite le mismatch d'hydratation).
   const [edition, setEdition] = useState("Éd. du jour · Nº 187");
   useEffect(() => {
-    const d = new Date();
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    setEdition(`Éd. ${dd}.${mm} · Nº 187`);
+    setEdition(editionInfo().label);
   }, []);
 
   const onDomain = useCallback((c: CategoryId) => {
@@ -290,6 +310,8 @@ export default function Home() {
       domainCounts={domainCounts}
       sourcesCount={sourcesTotal ?? sourcesCount}
       articlesCount={articles.length}
+      notifs={notifs}
+      stats={stats}
       user={account}
       onLogout={logout}
       onResults={(arts, q) => {

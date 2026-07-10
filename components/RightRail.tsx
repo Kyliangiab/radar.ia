@@ -2,13 +2,26 @@
 
 import { useEffect, useState } from "react";
 import type { FluxView } from "@/lib/types";
+import type { StatsResp } from "@/lib/stats";
 
-type StatsResp = {
-  hasHistory: boolean;
-  overallVariation: number;
-  series: { day: string; count: number }[];
-  topics: { topic: string; label: string; last7: number; prev7: number; variation: number }[];
-};
+// Heure du prochain brief (06:00) : aujourd'hui si pas encore passé, sinon demain.
+function nextBrief(now: Date): { when: "aujourd'hui" | "demain"; hhmm: string; countdown: string } {
+  const target = new Date(now);
+  target.setHours(6, 0, 0, 0);
+  let when: "aujourd'hui" | "demain" = "aujourd'hui";
+  if (now >= target) {
+    target.setDate(target.getDate() + 1);
+    when = "demain";
+  }
+  const diffMin = Math.max(0, Math.round((target.getTime() - now.getTime()) / 60000));
+  const h = Math.floor(diffMin / 60);
+  const m = diffMin % 60;
+  return {
+    when,
+    hhmm: "06:00",
+    countdown: h > 0 ? `${h} h ${String(m).padStart(2, "0")}` : `${m} min`,
+  };
+}
 
 // Génère les tracés (ligne + aire) d'une sparkline à partir des volumes.
 function sparkPaths(counts: number[]) {
@@ -33,25 +46,31 @@ export function RightRail({
   flux,
   sourcesCount = 10,
   feedCount = 0,
+  stats = null,
 }: {
   flux: FluxView;
   sourcesCount?: number;
   feedCount?: number;
+  stats?: StatsResp | null;
 }) {
   const isSources = flux === "sources";
   const isTrends = flux === "tendances";
 
-  const [stats, setStats] = useState<StatsResp | null>(null);
-  useEffect(() => {
-    if (flux !== "tendances") return;
-    fetch("/api/stats")
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(() => {});
-  }, [flux]);
   const hasHist = !!stats?.hasHistory;
   const overall = hasHist ? stats!.overallVariation : 47;
   const spark = hasHist ? sparkPaths(stats!.series.map((s) => s.count)) : null;
+
+  // Top hausses réelles (pour les signaux faibles du mode "En direct").
+  const risers = hasHist
+    ? stats!.topics.filter((t) => t.variation > 0).sort((a, b) => b.variation - a.variation)
+    : [];
+
+  // Horaire du prochain brief (mis à jour chaque minute).
+  const [brief, setBrief] = useState(() => nextBrief(new Date()));
+  useEffect(() => {
+    const id = setInterval(() => setBrief(nextBrief(new Date())), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto bg-[#F8EEDA] px-6 py-7 dark:bg-[#201A18]">
@@ -174,7 +193,7 @@ export function RightRail({
             <RailLabel dot="#4E8D6E" right={`${sourcesCount} sources`}>
               En direct
             </RailLabel>
-            <RadarDisc />
+            <RadarDisc countdown={brief.countdown} />
             <div className="mt-3 text-[11.5px] leading-[1.55] text-foreground/55">
               {feedCount > 0 ? `${feedCount} articles dans ton fil` : "Flux synchronisé"} ·
               dédoublonnage automatique.
@@ -182,27 +201,54 @@ export function RightRail({
           </section>
 
           <section>
-            <RailLabel right="03">Signaux faibles</RailLabel>
-            <div className="mb-2.5 rounded-[14px] bg-primary p-[14px_16px] text-white">
-              <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-white/80">
-                Détecté · UX
-              </div>
-              <div className="text-[12.5px] font-semibold leading-[1.35]">
-                Les palettes désaturées remplacent le néon 2024
-              </div>
-              <div className="mt-2 text-[10.5px] italic text-white/85">+3× de mentions / 30 j</div>
-            </div>
-            {[
-              "Le terme « SLM » apparaît dans 3× plus de sources qu'il y a un mois.",
-              "Montée discrète des sujets « carbone par requête ».",
-            ].map((s, i) => (
-              <div
-                key={i}
-                className="mb-1.5 rounded-[12px] border border-border bg-card p-[11px_13px] text-[11.5px] leading-[1.4] text-foreground"
-              >
-                {s}
-              </div>
-            ))}
+            <RailLabel right={hasHist && risers.length ? String(risers.length).padStart(2, "0") : "03"}>
+              Signaux faibles
+            </RailLabel>
+            {hasHist && risers.length ? (
+              <>
+                <div className="mb-2.5 rounded-[14px] bg-primary p-[14px_16px] text-white">
+                  <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-white/80">
+                    Détecté · {risers[0].label}
+                  </div>
+                  <div className="text-[12.5px] font-semibold leading-[1.35]">
+                    {risers[0].label} accélère nettement cette semaine
+                  </div>
+                  <div className="mt-2 text-[10.5px] italic text-white/85">
+                    +{risers[0].variation}% de volume / 7 j
+                  </div>
+                </div>
+                {risers.slice(1, 3).map((r) => (
+                  <div
+                    key={r.topic}
+                    className="mb-1.5 rounded-[12px] border border-border bg-card p-[11px_13px] text-[11.5px] leading-[1.4] text-foreground"
+                  >
+                    {r.label} : +{r.variation}% de volume sur 7 jours.
+                  </div>
+                ))}
+                {risers.length === 1 && (
+                  <div className="rounded-[12px] border border-border bg-card p-[11px_13px] text-[11.5px] leading-[1.4] text-foreground/70">
+                    Les autres domaines restent stables cette semaine.
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="mb-2.5 rounded-[14px] bg-primary p-[14px_16px] text-white">
+                  <div className="mb-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-white/80">
+                    Détection en cours
+                  </div>
+                  <div className="text-[12.5px] font-semibold leading-[1.35]">
+                    Les signaux faibles apparaissent après quelques jours de collecte
+                  </div>
+                  <div className="mt-2 text-[10.5px] italic text-white/85">
+                    Historique en constitution
+                  </div>
+                </div>
+                <div className="rounded-[12px] border border-border bg-card p-[11px_13px] text-[11.5px] leading-[1.4] text-foreground/70">
+                  Radar compare le volume par domaine d'une semaine à l'autre pour révéler les tendances discrètes.
+                </div>
+              </>
+            )}
           </section>
 
           <section className="mt-auto">
@@ -211,10 +257,10 @@ export function RightRail({
                 Ton rituel
               </div>
               <div className="mb-1.5 text-[14px] font-semibold leading-[1.3]">
-                Prochain brief demain 06:00
+                Prochain brief {brief.when} {brief.hhmm}
               </div>
               <div className="text-[11px] leading-[1.5] text-background/55">
-                Notifié 5 min avant · reçu par email en parallèle.
+                Dans {brief.countdown} · notifié 5 min avant.
               </div>
             </div>
           </section>
@@ -253,7 +299,7 @@ function RailLabel({
   );
 }
 
-function RadarDisc() {
+function RadarDisc({ countdown }: { countdown: string }) {
   return (
     <div
       className="relative aspect-square w-full overflow-hidden rounded-[16px]"
@@ -283,7 +329,7 @@ function RadarDisc() {
         <circle cx="60" cy="80" r="2" fill="#FF5A47" opacity=".45" />
       </svg>
       <div className="absolute bottom-3 left-3.5 text-[#FFF7EA]">
-        <div className="font-sans text-[20px] font-bold leading-none tracking-[-0.02em]">4 h 12</div>
+        <div className="font-sans text-[20px] font-bold leading-none tracking-[-0.02em]">{countdown}</div>
         <div className="mt-1 font-mono text-[8.5px] uppercase tracking-[0.1em] text-[#FFF7EA]/55">
           Prochain digest
         </div>
