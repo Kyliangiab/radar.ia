@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Trash2, Loader2, Rss } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
+import type { Article, CategoryId } from "@/lib/types";
 import { categoryColor } from "@/lib/categories";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { ScanOverlay } from "@/components/ScanOverlay";
@@ -10,13 +11,28 @@ import { cn } from "@/lib/utils";
 type GlobalSource = { id: string; name: string; type: string; category: string };
 type UserSource = { id: string; name: string; url: string };
 
-export function SourcesView() {
+type Row = {
+  id: string;
+  name: string;
+  type: string;
+  color: string;
+  kind: "global" | "user";
+};
+
+const FREQS = ["Temps réel", "Toutes les heures", "2× / jour", "Quotidien"];
+
+export function SourcesView({ articles = [] }: { articles?: Article[] }) {
   const [globals, setGlobals] = useState<GlobalSource[]>([]);
   const [mine, setMine] = useState<UserSource[]>([]);
   const [url, setUrl] = useState("");
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+
+  const [freq, setFreq] = useState("Toutes les heures");
+  const [filter, setFilter] = useState<"all" | "active" | "paused">("all");
+  const [paused, setPaused] = useState<Set<string>>(new Set());
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   async function loadMine() {
     const sb = getSupabaseBrowser();
@@ -71,95 +87,197 @@ export function SourcesView() {
     }
   }
 
-  async function remove(id: string) {
+  async function removeUser(id: string) {
     const sb = getSupabaseBrowser();
     await sb?.from("user_sources").delete().eq("id", id);
     loadMine();
   }
 
+  // Volume réel par source (nombre d'articles du flux venant de cette source).
+  const countBySource = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const a of articles) m[a.source] = (m[a.source] ?? 0) + 1;
+    return m;
+  }, [articles]);
+
+  const rows: Row[] = useMemo(() => {
+    const g: Row[] = globals.map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: s.type,
+      color: categoryColor(s.category as CategoryId),
+      kind: "global",
+    }));
+    const u: Row[] = mine.map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: "Flux RSS · perso",
+      color: "#FF5A47",
+      kind: "user",
+    }));
+    return [...g, ...u].filter((r) => !hidden.has(r.id));
+  }, [globals, mine, hidden]);
+
+  const shown = rows.filter((r) =>
+    filter === "all" ? true : filter === "paused" ? paused.has(r.id) : !paused.has(r.id),
+  );
+
+  function togglePause(id: string) {
+    setPaused((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   return (
-    <div className="max-w-[800px]">
+    <div>
       {scanning && <ScanOverlay />}
 
-      <div className="mb-1 text-[22px] font-bold text-foreground">Sources &amp; configuration</div>
-      <div className="mb-7 text-[13px] text-foreground/55">
-        Radar interroge ces sources en continu, dédoublonne et classe automatiquement.
-      </div>
+      <h1 className="mb-1 text-[26px] font-bold tracking-[-0.015em] text-foreground">Sources</h1>
+      <p className="mb-6 max-w-[560px] text-[13px] leading-[1.5] text-foreground/55">
+        Radar écoute ces sources en continu, dédoublonne, résume avec l'IA — tu décides quelles voix
+        comptent.
+      </p>
 
-      {/* Sources globales */}
-      <div className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.07em] text-foreground/40">
-        Sources surveillées ({globals.length})
+      {/* Fréquence de collecte */}
+      <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-foreground/40">
+        Fréquence de collecte · {freq}
       </div>
-      <div className="mb-8 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        {globals.map((s) => (
-          <div
-            key={s.id}
-            className="flex items-center gap-3 rounded-[12px] border border-border bg-card p-[14px_16px]"
+      <div className="mb-7 flex flex-wrap gap-2">
+        {FREQS.map((f) => (
+          <button
+            key={f}
+            onClick={() => setFreq(f)}
+            className={cn(
+              "rounded-full border px-[15px] py-[9px] text-[12.5px] font-medium transition-colors",
+              freq === f
+                ? "border-transparent bg-[#1A0A08] text-[#FFF7EA]"
+                : "border-border bg-card text-foreground/60 hover:text-foreground",
+            )}
           >
-            <span
-              className="h-[9px] w-[9px] shrink-0 rounded-full"
-              style={{ background: categoryColor(s.category as any) }}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[13.5px] font-medium text-foreground">{s.name}</div>
-              <div className="truncate text-[11.5px] uppercase tracking-wide text-foreground/40">{s.type}</div>
-            </div>
-          </div>
+            {f}
+          </button>
         ))}
       </div>
 
-      {/* Mes sources RSS */}
-      <div className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.07em] text-foreground/40">
-        Mes flux RSS
+      {/* Ajouter une source */}
+      <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-foreground/40">
+        Ajouter une source
       </div>
-      <div className="mb-2.5 flex gap-2">
-        <div className="flex flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5">
-          <Rss size={15} className="shrink-0 text-foreground/40" />
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && add()}
-            placeholder="Colle l'URL d'un flux RSS (le nom est récupéré tout seul)"
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-foreground/40"
-          />
-        </div>
+      <div className="mb-2 flex gap-2.5">
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+          placeholder="https://…"
+          className="min-w-0 flex-1 rounded-full border border-border bg-card px-[18px] py-[11px] text-[13px] text-foreground outline-none placeholder:text-foreground/40"
+        />
         <button
           onClick={add}
           disabled={scanning || !url.trim()}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 text-[13px] font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 text-[12.5px] font-bold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {scanning ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-          Ajouter
+          {scanning ? <Loader2 size={14} className="animate-spin" /> : null}
+          Ajouter →
         </button>
       </div>
       {error && <p className="mb-2 text-[12px] text-destructive">{error}</p>}
       {note && <p className="mb-2 text-[12px] text-[#4E8D6E]">{note}</p>}
 
-      {mine.length === 0 ? (
-        <p className="mt-2 text-[12.5px] text-foreground/45">
-          Aucun flux perso pour l'instant. Ajoute-en un pour l'inclure dans ton fil.
+      {/* Sources surveillées */}
+      <div className="mb-3 mt-6 flex items-center justify-between">
+        <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-foreground/40">
+          Sources surveillées · {rows.length}
+        </div>
+        <div className="flex gap-0.5 rounded-full bg-foreground/[0.06] p-[3px]">
+          {(
+            [
+              { id: "all", label: "Toutes" },
+              { id: "active", label: "Actives" },
+              { id: "paused", label: "Pause" },
+            ] as { id: typeof filter; label: string }[]
+          ).map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={cn(
+                "rounded-full px-3 py-[5px] text-[10.5px] font-semibold transition-colors",
+                filter === f.id
+                  ? "bg-card text-foreground shadow-[0_1px_2px_rgba(26,10,8,.08)]"
+                  : "text-foreground/50 hover:text-foreground",
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {shown.length === 0 ? (
+        <p className="py-10 text-center text-[13px] text-foreground/45">
+          Aucune source dans ce filtre.
         </p>
       ) : (
-        <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-          {mine.map((s) => (
-            <div
-              key={s.id}
-              className="flex items-center gap-3 rounded-[12px] border border-border bg-card p-[14px_16px]"
-            >
-              <Rss size={15} className="shrink-0 text-primary" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13.5px] font-medium text-foreground">{s.name}</div>
-                <div className="truncate text-[11.5px] text-foreground/40">{s.url}</div>
-              </div>
-              <button
-                onClick={() => remove(s.id)}
-                aria-label="Retirer"
-                className="shrink-0 text-foreground/40 transition-colors hover:text-destructive"
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          {shown.map((s) => {
+            const isPaused = paused.has(s.id);
+            const count = countBySource[s.name] ?? 0;
+            const health = isPaused ? "paused" : count > 0 ? "ok" : "slow";
+            const healthMeta =
+              health === "ok"
+                ? { label: "OK", color: "#4E8D6E", bg: "rgba(78,141,110,.14)" }
+                : health === "slow"
+                  ? { label: "Lent", color: "#C8663A", bg: "rgba(200,102,58,.16)" }
+                  : { label: "En pause", color: "rgba(26,10,8,.5)", bg: "rgba(26,10,8,.07)" };
+            return (
+              <div
+                key={s.id}
+                className="flex flex-col gap-3 rounded-[13px] border border-border bg-card p-[15px_17px]"
               >
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center gap-2.5">
+                  <span className="h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: s.color }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13.5px] font-semibold leading-[1.2] text-foreground">
+                      {s.name}
+                    </div>
+                    <div className="mt-0.5 truncate text-[10.5px] text-foreground/50">{s.type}</div>
+                  </div>
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.04em]"
+                    style={{ background: healthMeta.bg, color: healthMeta.color }}
+                  >
+                    {healthMeta.label}
+                  </span>
+                </div>
+
+                <div className="font-mono text-[10.5px] tracking-[0.02em] text-foreground/55">
+                  {count} art. · dans le fil
+                </div>
+
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => togglePause(s.id)}
+                    className={cn(
+                      "flex-1 rounded-2xl border py-[6px] text-[11.5px] font-semibold transition-colors",
+                      isPaused
+                        ? "border-border bg-transparent text-foreground/55 hover:text-foreground"
+                        : "border-[#4E8D6E]/45 bg-[#4E8D6E]/10 text-[#4E8D6E]",
+                    )}
+                  >
+                    {isPaused ? "En pause" : "Actif"}
+                  </button>
+                  <button
+                    onClick={() => (s.kind === "user" ? removeUser(s.id) : setHidden((p) => new Set(p).add(s.id)))}
+                    className="rounded-2xl border border-border bg-transparent px-3 py-[6px] text-[11.5px] font-medium text-foreground/55 transition-colors hover:border-[#C8663A] hover:text-[#C8663A]"
+                  >
+                    Retirer
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
