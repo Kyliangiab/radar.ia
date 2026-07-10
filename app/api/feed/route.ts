@@ -57,7 +57,17 @@ export async function GET(request: Request) {
       if (category !== "all") q = q.eq("category", category);
       const { data, error } = await q;
       if (!error && data && data.length > 0) {
-        return NextResponse.json({ category, source: "db", count: data.length, articles: data.map(mapRow) });
+        return NextResponse.json({
+          category,
+          source: "db",
+          count: data.length,
+          _debug: { uid, validUid, err: error ? String((error as { message?: string }).message) : null },
+          articles: data.map(mapRow),
+        });
+      }
+      // debug : si la requête DB a échoué / renvoyé 0
+      if (searchParams.get("_dbg")) {
+        return NextResponse.json({ _debug: { uid, validUid, dbError: error ? (error as { message?: string }).message : null, len: data?.length ?? null } });
       }
     } catch {
       /* bascule en live ci-dessous */
