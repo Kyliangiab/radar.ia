@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
-import type { Article, Briefing, CategoryId, FeedSort, FluxView } from "@/lib/types";
+import type { Article, Briefing, CategoryId, Density, FeedSort, FluxView } from "@/lib/types";
 import { CATEGORY_MAP } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/AppShell";
@@ -36,8 +36,16 @@ export default function Home() {
   const [flux, setFlux] = useState<FluxView>("fil");
   const [domain, setDomain] = useState<CategoryId>("all");
   const [sort, setSort] = useState<FeedSort>("recent");
+  const [density, setDensity] = useState<Density>("confort");
   const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [read, setRead] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
+
+  // Ouvre le drawer + marque l'article comme lu (dimming).
+  const openArticleId = useCallback((id: string) => {
+    setOpenId(id);
+    setRead((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,8 +225,10 @@ export default function Home() {
         <SearchResults
           results={results}
           query={query}
+          density={density}
           savedSet={saved}
-          onOpen={setOpenId}
+          readSet={read}
+          onOpen={openArticleId}
           onSave={toggleSave}
           onBack={() => setResults(null)}
         />
@@ -253,27 +263,51 @@ export default function Home() {
             )}
             <span className="text-[12.5px] text-foreground/40">{feedList.length} articles</span>
 
-            {/* Tri */}
-            <div className="ml-auto flex gap-0.5 rounded-[9px] bg-foreground/5 p-[3px]">
-              {(
-                [
-                  { id: "recent", label: "Récents" },
-                  { id: "hot", label: "Pertinence" },
-                ] as { id: FeedSort; label: string }[]
-              ).map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setSort(s.id)}
-                  className={cn(
-                    "rounded-[7px] px-3.5 py-1.5 text-[12px] font-semibold transition-colors",
-                    sort === s.id
-                      ? "bg-card text-foreground shadow-[0_1px_2px_rgba(26,10,8,.1)]"
-                      : "text-foreground/50 hover:text-foreground",
-                  )}
-                >
-                  {s.label}
-                </button>
-              ))}
+            <div className="ml-auto flex items-center gap-2">
+              {/* Tri */}
+              <div className="flex gap-0.5 rounded-[9px] bg-foreground/5 p-[3px]">
+                {(
+                  [
+                    { id: "recent", label: "Récents" },
+                    { id: "hot", label: "Pertinence" },
+                  ] as { id: FeedSort; label: string }[]
+                ).map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSort(s.id)}
+                    className={cn(
+                      "rounded-[7px] px-3.5 py-1.5 text-[12px] font-semibold transition-colors",
+                      sort === s.id
+                        ? "bg-card text-foreground shadow-[0_1px_2px_rgba(26,10,8,.1)]"
+                        : "text-foreground/50 hover:text-foreground",
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              {/* Densité */}
+              <div className="flex gap-0.5 rounded-[9px] bg-foreground/5 p-[3px]">
+                {(
+                  [
+                    { id: "confort", label: "Confort" },
+                    { id: "compact", label: "Compact" },
+                  ] as { id: Density; label: string }[]
+                ).map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => setDensity(d.id)}
+                    className={cn(
+                      "rounded-[7px] px-3.5 py-1.5 text-[12px] font-semibold transition-colors",
+                      density === d.id
+                        ? "bg-card text-foreground shadow-[0_1px_2px_rgba(26,10,8,.1)]"
+                        : "text-foreground/50 hover:text-foreground",
+                    )}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -291,7 +325,14 @@ export default function Home() {
           ) : feedList.length === 0 ? (
             <EmptyState flux={flux} />
           ) : (
-            <Feed articles={feedList} savedSet={saved} onOpen={setOpenId} onSave={toggleSave} />
+            <Feed
+              articles={feedList}
+              density={density}
+              savedSet={saved}
+              readSet={read}
+              onOpen={openArticleId}
+              onSave={toggleSave}
+            />
           )}
         </>
       )}
@@ -310,14 +351,18 @@ export default function Home() {
 function SearchResults({
   results,
   query,
+  density,
   savedSet,
+  readSet,
   onOpen,
   onSave,
   onBack,
 }: {
   results: Article[];
   query: string;
+  density: Density;
   savedSet: Set<string>;
+  readSet: Set<string>;
   onOpen: (id: string) => void;
   onSave: (id: string) => void;
   onBack: () => void;
@@ -343,7 +388,14 @@ function SearchResults({
           <p className="mt-1.5 text-[13px] text-foreground/45">Essaie d'autres termes.</p>
         </div>
       ) : (
-        <Feed articles={results} savedSet={savedSet} onOpen={onOpen} onSave={onSave} />
+        <Feed
+          articles={results}
+          density={density}
+          savedSet={savedSet}
+          readSet={readSet}
+          onOpen={onOpen}
+          onSave={onSave}
+        />
       )}
     </div>
   );

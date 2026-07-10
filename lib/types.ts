@@ -4,6 +4,8 @@ export type CategoryId = "all" | "tech" | "biz" | "data" | "ux";
 export type FluxView = "fil" | "brief" | "enregistres" | "sources";
 // Tri du fil : plus récents / plus pertinents (heat).
 export type FeedSort = "recent" | "hot";
+// Densité d'affichage du fil (design 4a) : cartes (Confort) ou liste (Compact).
+export type Density = "confort" | "compact";
 
 // Étiquette de source affichée. Sources historiques : "HN" | "Dev.to".
 // Élargi à string pour accueillir les flux RSS / API additionnels
