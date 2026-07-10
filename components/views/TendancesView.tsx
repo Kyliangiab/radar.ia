@@ -60,6 +60,15 @@ export function TendancesView({
       : breakdown.slice(0, 5).map((b) => ({ label: b.label, n: b.n }));
   const maxSujet = sujets[0]?.n || 1;
 
+  // "Ce qui a chuté" : les sujets les moins présents (volume le plus faible).
+  const quiet =
+    topTags.length >= 3
+      ? Object.entries(byTag)
+          .sort((a, b) => a[1] - b[1])
+          .slice(0, 3)
+          .map(([label, n]) => ({ label, n }))
+      : breakdown.slice().reverse().slice(0, 3).map((b) => ({ label: b.label, n: b.n }));
+
   const stats = [
     { value: String(articles.length), unit: "", label: "Articles analysés" },
     { value: String(sources.length), unit: "", label: "Sources surveillées" },
@@ -174,9 +183,9 @@ export function TendancesView({
 
       {/* Signaux faibles · Sources les plus actives */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-[14px] bg-primary p-[22px_24px] text-white">
+        <div className="rounded-[14px] bg-primary p-[22px_24px] text-[#FFF7EA]">
           <div className="mb-4 flex items-baseline justify-between">
-            <div className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]">
+            <div className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#FFF7EA]/90">
               Signaux faibles détectés
             </div>
             <div className="rounded-full bg-[#1A0A08] px-2 py-0.5 font-mono text-[10px] font-bold text-primary">
@@ -185,15 +194,15 @@ export function TendancesView({
           </div>
           {signals.length ? (
             signals.map((g, i) => (
-              <div key={i} className="flex items-start gap-3 border-t border-[#1A0A08]/15 py-2.5">
+              <div key={i} className="flex items-start gap-3 border-t border-[#FFF7EA]/15 py-2.5">
                 <span className="mt-px grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-[#1A0A08] text-[11px] font-bold text-primary">
                   →
                 </span>
-                <span className="text-[12.5px] font-medium leading-[1.4] text-[#1A0A08]">{g}</span>
+                <span className="text-[12.5px] font-medium leading-[1.4] text-[#FFF7EA]">{g}</span>
               </div>
             ))
           ) : (
-            <div className="text-[12.5px] text-[#1A0A08]/85">
+            <div className="text-[12.5px] text-[#FFF7EA]/85">
               Génère le brief du jour pour révéler les signaux faibles.
             </div>
           )}
@@ -220,6 +229,31 @@ export function TendancesView({
           ))}
         </div>
       </div>
+
+      {/* Le moins couvert cette semaine */}
+      {quiet.length > 0 && (
+        <div className="mt-[18px] rounded-[14px] border border-border bg-card p-[22px_24px]">
+          <div className="mb-4 flex items-baseline justify-between">
+            <div className="text-[14px] font-semibold text-foreground">
+              Le moins couvert cette semaine
+            </div>
+            <div className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-foreground/45">
+              Volume ↓
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {quiet.map((q) => (
+              <div key={q.label} className="rounded-[11px] bg-foreground/[0.04] p-[14px_16px]">
+                <div className="mb-1 flex items-baseline gap-2">
+                  <span className="text-[22px] font-bold tracking-[-0.02em] text-[#C8663A]">{q.n}</span>
+                  <span className="font-mono text-[11px] text-foreground/45">art. · {period}</span>
+                </div>
+                <div className="truncate text-[12.5px] font-medium text-foreground">{q.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -18,6 +18,7 @@ export function RightRail({
   feedCount?: number;
 }) {
   const isSources = flux === "sources";
+  const isTrends = flux === "tendances";
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto bg-[#F8EEDA] px-6 py-7 dark:bg-[#201A18]">
@@ -59,6 +60,70 @@ export function RightRail({
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
+        </>
+      ) : isTrends ? (
+        <>
+          <section>
+            <RailLabel dot="#FF5A47">Aperçu · 7 jours</RailLabel>
+            <div className="rounded-[16px] bg-[#1A0A08] p-[22px] text-[#FFF7EA]">
+              <div className="text-[46px] font-bold leading-none tracking-[-0.035em] text-primary">
+                + 47 %
+              </div>
+              <div className="mt-2 text-[12px] leading-[1.45] text-[#FFF7EA]/60">
+                de volume vs la semaine dernière — poussée surtout par les agents autonomes et l'edge.
+              </div>
+              <div className="mt-4 h-[60px]">
+                <svg viewBox="0 0 200 60" preserveAspectRatio="none" className="h-full w-full">
+                  <path
+                    d="M0 45 Q 25 40 40 38 T 80 30 T 120 24 T 160 14 T 200 6"
+                    fill="none"
+                    stroke="#FF5A47"
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M0 45 Q 25 40 40 38 T 80 30 T 120 24 T 160 14 T 200 6 L 200 60 L 0 60 Z"
+                    fill="rgba(255,90,71,.15)"
+                  />
+                </svg>
+              </div>
+              <div className="mt-1.5 flex justify-between font-mono text-[8.5px] tracking-[0.06em] text-[#FFF7EA]/40">
+                {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
+                  <span key={i}>{d}</span>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <RailLabel>Comparer avec</RailLabel>
+            <div className="flex flex-col gap-1.5">
+              <button className="flex items-center gap-2.5 rounded-[11px] border border-border bg-card p-[11px_14px] text-left text-[12.5px] font-medium text-foreground">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[#4E8D6E]" />
+                <span className="flex-1">Semaine passée</span>
+                <span className="font-mono text-[11px] font-bold text-[#4E8D6E]">actif</span>
+              </button>
+              {["Il y a un mois", "Il y a 3 mois"].map((p) => (
+                <button
+                  key={p}
+                  className="flex items-center gap-2.5 rounded-[11px] border border-border bg-transparent p-[11px_14px] text-left text-[12.5px] font-medium text-foreground/70 hover:text-foreground"
+                >
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-foreground/30" />
+                  <span className="flex-1">{p}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-auto">
+            <div className="rounded-[14px] bg-primary p-[16px_18px] text-[#FFF7EA]">
+              <div className="mb-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-[#FFF7EA]/90">
+                Lecture Radar
+              </div>
+              <div className="text-[12.5px] italic leading-[1.45] text-[#FFF7EA]">
+                « La tendance de fond se lit sur plusieurs semaines, pas sur un pic. »
+              </div>
             </div>
           </section>
         </>
