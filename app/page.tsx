@@ -203,6 +203,14 @@ export default function Home() {
   }, [articles]);
   const sourcesCount = useMemo(() => new Set(articles.map((a) => a.source)).size, [articles]);
 
+  // "Aussi couvert par" : mêmes domaine, autres sources.
+  const relatedArticles = useMemo(() => {
+    if (!openArticle) return [];
+    return articles
+      .filter((a) => a.category === openArticle.category && a.id !== openArticle.id)
+      .slice(0, 3);
+  }, [openArticle, articles]);
+
   // Progression de lecture (ligne mono de l'en-tête).
   const readInFeed = useMemo(
     () => feedList.filter((a) => read.has(a.id)).length,
@@ -402,6 +410,7 @@ export default function Home() {
     <ArticleDrawer
       article={openArticle}
       saved={openArticle ? saved.has(openArticle.id) : false}
+      related={relatedArticles}
       onClose={() => setOpenId(null)}
       onSave={() => openArticle && toggleSave(openArticle.id)}
     />
