@@ -14,7 +14,10 @@
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export const GROQ_MODEL_ENRICH = "llama-3.3-70b-versatile";
-export const GROQ_MODEL_SMART = "openai/gpt-oss-120b";
+// SMART = briefing / résumé drawer / Ask Radar. gpt-oss-120b a une limite
+// quotidienne basse (200k tokens/j) vite épuisée par l'ingestion → on utilise
+// llama-3.3-70b (quota bien plus large, qualité suffisante pour ces tâches).
+export const GROQ_MODEL_SMART = "llama-3.3-70b-versatile";
 
 export function hasGroq(): boolean {
   return !!process.env.GROQ_API_KEY;

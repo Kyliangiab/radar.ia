@@ -13,13 +13,6 @@ import { RelevancePill } from "./RelevancePill";
 type Mode = "court" | "resume";
 type Extra = { summary: string; points: string[]; pullquote: string };
 
-function sentences(txt: string): string[] {
-  return (txt || "")
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 12);
-}
-
 // Heuristique légère : le texte est-il déjà en français ?
 function isFrench(s: string): boolean {
   if (!s) return false;
@@ -215,9 +208,10 @@ export function ArticleDrawer({
   const displayCourt = lang === "fr" ? frMap[courtOrig] ?? courtOrig : courtOrig;
   const displaySummary = storedSummary || ex?.summary || courtOrig || "";
   const body = mode === "court" ? displayCourt || displaySummary : displaySummary;
-  const displayPoints = ex?.points?.length ? ex.points : sentences(displaySummary).slice(0, 3);
-  const displayPullquote =
-    ex?.pullquote || (lang === "fr" ? a.whyItMatters ?? "" : "") || sentences(displaySummary)[0] || "";
+  // Points / punchline : uniquement les vrais (IA) — pas de fragments de phrase
+  // qui ressemblent à un bug.
+  const displayPoints = ex?.points?.length ? ex.points : [];
+  const displayPullquote = ex?.pullquote || (lang === "fr" ? a.whyItMatters ?? "" : "");
 
   const cat: CategoryId = (CATEGORY_MAP[a.category] ? a.category : "tech") as CategoryId;
   const color = categoryColor(cat);
