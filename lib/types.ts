@@ -29,6 +29,10 @@ export interface Article {
   heat: number; // 0..100 (signal relatif)
   summary?: string; // résumé IA en français (si déjà stocké)
   summaryOrig?: string; // résumé IA en langue d'origine (pour le mode VO)
+  keyPoints?: string[]; // 3 points clés (FR) — stockés à l'ingestion
+  keyPointsOrig?: string[]; // 3 points clés (langue d'origine)
+  pullquote?: string; // punchline "à ressortir en réunion" (FR)
+  pullquoteOrig?: string; // punchline (langue d'origine)
   whyItMatters?: string; // "pourquoi c'est important" IA
 }
 

@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { RelevancePill } from "./RelevancePill";
 
 type Mode = "court" | "resume";
-type Extra = { summary: string; points: string[]; pullquote: string };
 
 // Heuristique légère : le texte est-il déjà en français ?
 function isFrench(s: string): boolean {
@@ -22,6 +21,8 @@ function isFrench(s: string): boolean {
   for (const w of words) if (t.includes(w)) hits++;
   return hits >= 2;
 }
+
+const norm = (s: string) => (s || "").trim().toLowerCase().replace(/\s+/g, " ").slice(0, 80);
 
 export function ArticleDrawer({
   article,
@@ -41,23 +42,18 @@ export function ArticleDrawer({
   const [askQ, setAskQ] = useState("");
   const [askAnswer, setAskAnswer] = useState("");
   const [askLoading, setAskLoading] = useState(false);
-  // Langue : "vo" (langue d'origine) par défaut, "fr" à la demande. Le résumé
-  // est stocké dans les 2 langues (summary_orig / summary) → bascule instantanée.
-  // On ne traduit à la volée que le titre en FR (frMap) ; les points/punchline
-  // sont générés dans la bonne langue (extra, via /api/summarize).
-  const [lang, setLang] = useState<"vo" | "fr">("vo");
-  const [frMap, setFrMap] = useState<Record<string, string>>({});
-  const [translating, setTranslating] = useState(false);
-  const [extra, setExtra] = useState<{ en?: Extra; fr?: Extra }>({});
-  // Animation entrée/sortie du tiroir.
+  // Langue : "fr" (défaut, instantané) / "vo" (langue d'origine). TOUT est lu
+  // depuis la base (résumé, points, punchline en 2 langues) → AUCUN appel IA à
+  // l'ouverture (crucial : le free tier Groq est limité par minute).
+  const [lang, setLang] = useState<"fr" | "vo">("fr");
+  // Animation entrée/sortie.
   const [entered, setEntered] = useState(false);
   const [closing, setClosing] = useState(false);
-  // Swipe-pour-fermer (mobile) : on suit le doigt vers la droite.
+  // Swipe-pour-fermer (mobile).
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const touch = useRef<{ x0: number; y0: number; swiping: boolean } | null>(null);
 
-  // Fermeture animée : joue la sortie puis prévient le parent.
   const handleClose = useCallback(() => {
     setClosing(true);
     setTimeout(onClose, 280);
@@ -92,16 +88,14 @@ export function ArticleDrawer({
     touch.current = null;
   }
 
-  // Reset + animation d'entrée + Échap, à chaque article.
+  // Reset + animation d'entrée + Échap, à chaque article. (Aucun fetch.)
   useEffect(() => {
     if (!article) return;
     setMode("resume");
     setAskOpen(false);
     setAskQ("");
     setAskAnswer("");
-    setLang("vo");
-    setFrMap({});
-    setExtra({});
+    setLang("fr");
     setClosing(false);
     setEntered(false);
     setDragX(0);
@@ -116,110 +110,26 @@ export function ArticleDrawer({
   }, [article, handleClose]);
 
   const relatedCards = useMemo(
-    () =>
-      (related || [])
-        .filter((r) => article && r.id !== article.id)
-        .slice(0, 3),
+    () => (related || []).filter((r) => article && r.id !== article.id).slice(0, 3),
     [related, article],
   );
-
-  const langKey: "en" | "fr" = lang === "vo" ? "en" : "fr";
-
-  // Traduction du TITRE en FR (le résumé est déjà stocké dans les 2 langues).
-  useEffect(() => {
-    if (!article || lang !== "fr" || isFrench(article.title)) return;
-    const strings = [article.title, ...(mode === "court" ? [article.snippet ?? ""] : [])].filter(
-      (s) => s && !(s in frMap),
-    );
-    const uniq = Array.from(new Set(strings));
-    if (!uniq.length) return;
-    let cancelled = false;
-    setTranslating(true);
-    // Timeout client : si la traduction traîne (> 12 s), on abandonne et on
-    // garde le titre original — pas de spinner "Traduction…" figé.
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12000);
-    fetch("/api/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texts: uniq, target: "français" }),
-      signal: ctrl.signal,
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled || !Array.isArray(d.texts) || d.texts.length !== uniq.length) return;
-        setFrMap((m) => {
-          const n = { ...m };
-          uniq.forEach((s, i) => (n[s] = d.texts[i]));
-          return n;
-        });
-      })
-      .catch(() => {})
-      .finally(() => {
-        clearTimeout(timer);
-        if (!cancelled) setTranslating(false);
-      });
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-      ctrl.abort();
-    };
-  }, [article, lang, mode]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Points + punchline générés dans la bonne langue (anglais en VO, français
-  // en FR), directement à partir de la source → pas de re-traduction. Cache/lang.
-  useEffect(() => {
-    if (!article || extra[langKey]) return;
-    let cancelled = false;
-    fetch("/api/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: article.title,
-        snippet: article.snippet ?? "",
-        source: article.source,
-        lang: langKey,
-      }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled || !d || d.error) return;
-        setExtra((e) => ({
-          ...e,
-          [langKey]: {
-            summary: d.summary ?? "",
-            points: (d.points ?? []).slice(0, 3),
-            pullquote: d.pullquote ?? "",
-          },
-        }));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [article, langKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!article) return null;
   const a = article;
   const origIsFrench = isFrench(a.title);
-  const origLangLabel = origIsFrench ? "Français" : "English";
 
-  // Affichage par langue — résumé stocké (instantané) ; repli sur le résumé
-  // généré à la volée (extra, dans la bonne langue) puis sur l'extrait, pour ne
-  // jamais afficher "pas de résumé" quand un article n'a pas été enrichi.
-  const ex = extra[langKey];
-  const displayTitle = lang === "fr" ? frMap[a.title] ?? a.title : a.title;
-  // En VO on ne retombe PAS sur le résumé FR : summary_orig → résumé live (EN)
-  // → extrait. En FR : summary → résumé live (FR) → extrait.
-  const storedSummary = lang === "vo" ? a.summaryOrig ?? "" : a.summary ?? "";
-  const courtOrig = a.snippet || "";
-  const displayCourt = lang === "fr" ? frMap[courtOrig] ?? courtOrig : courtOrig;
-  const displaySummary = storedSummary || ex?.summary || courtOrig || "";
-  const body = mode === "court" ? displayCourt || displaySummary : displaySummary;
-  // Points / punchline : uniquement les vrais (IA) — pas de fragments de phrase
-  // qui ressemblent à un bug.
-  const displayPoints = ex?.points?.length ? ex.points : [];
-  const displayPullquote = ex?.pullquote || (lang === "fr" ? a.whyItMatters ?? "" : "");
+  // ── Contenu 100 % stocké, choisi par langue (instantané) ──
+  const snippet = a.snippet || "";
+  const displaySummary =
+    lang === "vo" ? a.summaryOrig || snippet || "" : a.summary || snippet || "";
+  const body = mode === "court" ? snippet || displaySummary : displaySummary;
+
+  const rawPoints = (lang === "vo" ? a.keyPointsOrig : a.keyPoints) ?? [];
+  const rawPull = lang === "vo" ? a.pullquoteOrig ?? "" : a.pullquote ?? a.whyItMatters ?? "";
+  // Anti-répétition : jamais un point/punchline identique au résumé.
+  const sumKey = norm(displaySummary);
+  const displayPoints = rawPoints.filter((p) => norm(p) && norm(p) !== sumKey).slice(0, 3);
+  const displayPullquote = norm(rawPull) && norm(rawPull) !== sumKey ? rawPull : "";
 
   const cat: CategoryId = (CATEGORY_MAP[a.category] ? a.category : "tech") as CategoryId;
   const color = categoryColor(cat);
@@ -334,22 +244,25 @@ export function ArticleDrawer({
           )}
         </div>
         <h2 className="mb-2.5 text-[21px] font-bold leading-[1.25] tracking-[-0.012em] text-foreground">
-          {displayTitle}
+          {a.title}
         </h2>
         <div className="mb-[18px]">
-          {!origIsFrench &&
-            (lang === "fr" ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#4E8D6E]/[0.14] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[#4E8D6E]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#4E8D6E]" />
-                {translating ? "Traduction…" : "Traduit par Radar"}
-                {translating && <Loader2 size={10} className="animate-spin" />}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-foreground/50">
-                <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
-                Titre original · {origLangLabel}
-              </span>
-            ))}
+          {!origIsFrench && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em]",
+                lang === "fr"
+                  ? "bg-[#4E8D6E]/[0.14] text-[#4E8D6E]"
+                  : "bg-foreground/[0.06] text-foreground/50",
+              )}
+            >
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: lang === "fr" ? "#4E8D6E" : "rgba(26,10,8,.4)" }}
+              />
+              {lang === "fr" ? "Résumé par Radar · FR" : "Titre original · English"}
+            </span>
+          )}
         </div>
 
         {/* CTA Voir la source */}
@@ -391,7 +304,7 @@ export function ArticleDrawer({
           </button>
         </div>
 
-        {/* Résumé Radar + toggle */}
+        {/* Résumé Radar + toggle Court/Résumé */}
         <div className="mb-2.5 flex items-center gap-3">
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-foreground/40">
             Résumé Radar
@@ -420,11 +333,11 @@ export function ArticleDrawer({
           {body || "Pas de résumé disponible — ouvre la source pour le détail."}
         </p>
 
-        {/* 3 points */}
+        {/* Points à retenir */}
         {displayPoints.length > 0 && (
           <>
             <div className="mb-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-foreground/40">
-              {displayPoints.length} points à retenir
+              {displayPoints.length} point{displayPoints.length > 1 ? "s" : ""} à retenir
             </div>
             {displayPoints.map((p, i) => (
               <div key={i} className="mb-2.5 flex gap-2.5 text-[13.5px] leading-[1.5] text-foreground/85">

@@ -27,6 +27,10 @@ function mapRow(r: any): Article {
     heat: r.heat ?? 0,
     summary: r.summary ?? undefined,
     summaryOrig: r.summary_orig ?? undefined,
+    keyPoints: r.key_points ?? undefined,
+    keyPointsOrig: r.key_points_orig ?? undefined,
+    pullquote: r.pullquote ?? undefined,
+    pullquoteOrig: r.pullquote_orig ?? undefined,
     whyItMatters: r.why_it_matters ?? undefined,
   };
 }
