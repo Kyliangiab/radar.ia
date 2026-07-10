@@ -54,7 +54,7 @@ export function ArticleDrawer({
   //  · voMap : champs RADAR (résumé, points, punchline, en français) → langue d'origine.
   // Ainsi VO affiche tout dans la langue d'origine, FR tout en français, sans
   // jamais re-traduire un texte déjà dans la bonne langue.
-  const [lang, setLang] = useState<"vo" | "fr">("vo");
+  const [lang, setLang] = useState<"vo" | "fr">("fr");
   const [frMap, setFrMap] = useState<Record<string, string>>({});
   const [voMap, setVoMap] = useState<Record<string, string>>({});
   const [translating, setTranslating] = useState(false);
@@ -108,7 +108,7 @@ export function ArticleDrawer({
     setAskOpen(false);
     setAskQ("");
     setAskAnswer("");
-    setLang("vo");
+    setLang("fr");
     setFrMap({});
     setVoMap({});
     setClosing(false);
@@ -161,7 +161,7 @@ export function ArticleDrawer({
     const target = isFR ? "français" : "anglais";
     const strings = (
       isFR
-        ? [article.title, article.snippet ?? ""]
+        ? [article.title, ...(mode === "court" ? [article.snippet ?? ""] : [])]
         : [article.summary ?? "", ...points, pullquote]
     ).filter((s) => s && !(s in map));
     const uniq = Array.from(new Set(strings));
@@ -189,7 +189,7 @@ export function ArticleDrawer({
     return () => {
       cancelled = true;
     };
-  }, [article, lang, points, pullquote]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [article, lang, mode, points, pullquote]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!article) return null;
   const a = article;
@@ -396,7 +396,12 @@ export function ArticleDrawer({
             ))}
           </div>
         </div>
-        <p className="mb-[18px] text-[14px] leading-[1.65] text-foreground">
+        <p
+          className={
+            "mb-[18px] text-[14px] leading-[1.65] text-foreground transition-opacity" +
+            (lang === "vo" && translating ? " opacity-40" : "")
+          }
+        >
           {L(body) || "Pas de résumé disponible — ouvre la source pour le détail."}
         </p>
 
