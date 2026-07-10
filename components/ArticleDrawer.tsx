@@ -180,6 +180,7 @@ export function ArticleDrawer({
   if (!article) return null;
   const a = article;
   const origIsFrench = isFrench(a.title);
+  const origLangLabel = origIsFrench ? "Français" : "English";
   // Affichage : renvoie la traduction FR si dispo, sinon l'original.
   const L = (s: string) => (lang === "fr" ? frMap[s] || s : s);
   const cat: CategoryId = (CATEGORY_MAP[a.category] ? a.category : "tech") as CategoryId;
@@ -279,24 +280,19 @@ export function ArticleDrawer({
             {a.points > 0 && <> · {a.points} pts</>}
           </div>
           {!origIsFrench && (
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="hidden rounded-full bg-foreground/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-foreground/50 sm:inline">
-                Article en anglais
-              </span>
-              <div className="flex gap-0.5 rounded-full bg-foreground/[0.06] p-[3px]">
-                {(["vo", "fr"] as const).map((l) => (
-                  <button
-                    key={l}
-                    onClick={() => setLang(l)}
-                    className={cn(
-                      "rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] transition-colors",
-                      lang === l ? "bg-primary text-white" : "text-foreground/55 hover:text-foreground",
-                    )}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
+            <div className="flex shrink-0 gap-0.5 rounded-full bg-foreground/[0.06] p-[3px]">
+              {(["vo", "fr"] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.06em] transition-colors",
+                    lang === l ? "bg-primary text-white" : "text-foreground/55 hover:text-foreground",
+                  )}
+                >
+                  {l}
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -304,13 +300,19 @@ export function ArticleDrawer({
           {L(a.title)}
         </h2>
         <div className="mb-[18px]">
-          {!origIsFrench && lang === "fr" && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#4E8D6E]/[0.14] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[#4E8D6E]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#4E8D6E]" />
-              {translating ? "Traduction…" : "Traduit par Radar"}
-              {translating && <Loader2 size={10} className="animate-spin" />}
-            </span>
-          )}
+          {!origIsFrench &&
+            (lang === "fr" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#4E8D6E]/[0.14] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[#4E8D6E]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#4E8D6E]" />
+                {translating ? "Traduction…" : "Traduit par Radar"}
+                {translating && <Loader2 size={10} className="animate-spin" />}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-foreground/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-foreground/50">
+                <span className="h-1.5 w-1.5 rounded-full bg-foreground/40" />
+                Titre original · {origLangLabel}
+              </span>
+            ))}
         </div>
 
         {/* CTA Voir la source */}
