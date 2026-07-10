@@ -135,10 +135,15 @@ export function ArticleDrawer({
     if (!uniq.length) return;
     let cancelled = false;
     setTranslating(true);
+    // Timeout client : si la traduction traîne (> 12 s), on abandonne et on
+    // garde le titre original — pas de spinner "Traduction…" figé.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
     fetch("/api/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ texts: uniq, target: "français" }),
+      signal: ctrl.signal,
     })
       .then((r) => r.json())
       .then((d) => {
@@ -151,10 +156,13 @@ export function ArticleDrawer({
       })
       .catch(() => {})
       .finally(() => {
+        clearTimeout(timer);
         if (!cancelled) setTranslating(false);
       });
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      ctrl.abort();
     };
   }, [article, lang, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
