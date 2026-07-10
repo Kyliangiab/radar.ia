@@ -78,7 +78,7 @@ export function ArticleDrawer({
           {a.whyItMatters && (
             <div
               className="mb-5 rounded-[14px] p-[16px_18px]"
-              style={{ background: "rgba(255,107,106,.1)", border: "1px solid rgba(255,107,106,.25)" }}
+              style={{ background: "rgba(255,90,71,.1)", border: "1px solid rgba(255,90,71,.25)" }}
             >
               <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[#E0503F]">
                 Pourquoi ça compte

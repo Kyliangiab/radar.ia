@@ -190,7 +190,7 @@ export default function Home() {
   }, []);
 
   const domainLabel = domain !== "all" ? CATEGORY_MAP[domain]?.label : "";
-  const domainColor = domain !== "all" ? CATEGORY_MAP[domain]?.color : "#FF6B6A";
+  const domainColor = domain !== "all" ? CATEGORY_MAP[domain]?.color : "#FF5A47";
   const firstName = account?.name.trim().split(/\s+/)[0] ?? "";
 
   // ── Gate d'authentification ──
@@ -267,7 +267,7 @@ export default function Home() {
                   className={cn(
                     "rounded-[7px] px-3.5 py-1.5 text-[12px] font-semibold transition-colors",
                     sort === s.id
-                      ? "bg-card text-foreground shadow-[0_1px_2px_rgba(38,0,0,.1)]"
+                      ? "bg-card text-foreground shadow-[0_1px_2px_rgba(26,10,8,.1)]"
                       : "text-foreground/50 hover:text-foreground",
                   )}
                 >

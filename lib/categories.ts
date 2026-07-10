@@ -18,7 +18,7 @@ export const CATEGORIES: CategoryDef[] = [
   {
     id: "all",
     label: "Tout",
-    color: "#FF6B6A",
+    color: "#FF5A47",
     gradient: true,
     devtoTags: [],
   },
@@ -37,7 +37,7 @@ export const CATEGORIES: CategoryDef[] = [
   {
     id: "data",
     label: "Data & IA",
-    color: "#5566C7", // indigo
+    color: "#8E5FB8", // violet
     devtoTags: ["ai", "machinelearning"],
   },
   {
@@ -61,4 +61,4 @@ export function categoryColor(id: CategoryId): string {
 }
 
 // Dégradé signature (barre briefing, pastille "Tout")
-export const RAMP = "linear-gradient(90deg,#C8663A,#4E8D6E,#5566C7,#B4568F)";
+export const RAMP = "linear-gradient(90deg,#C8663A,#4E8D6E,#8E5FB8,#FF5A47)";

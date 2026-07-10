@@ -104,7 +104,7 @@ export function Sidebar({
         className={cn(
           "mt-1 flex w-full items-center gap-[10px] rounded-[10px] px-3 py-[10px] text-left text-[13.5px] transition-colors",
           flux === "sources"
-            ? "bg-background font-semibold text-foreground shadow-[0_1px_2px_rgba(38,0,0,.12)]"
+            ? "bg-background font-semibold text-foreground shadow-[0_1px_2px_rgba(26,10,8,.12)]"
             : "font-medium text-white/85 hover:bg-white/10",
         )}
       >
@@ -184,7 +184,7 @@ function DomainItem({
       className={cn(
         "mb-0.5 flex w-full items-center gap-[10px] rounded-[10px] px-3 py-[9px] text-left text-[13px] transition-colors",
         active
-          ? "bg-background font-semibold text-foreground shadow-[0_1px_2px_rgba(38,0,0,.12)]"
+          ? "bg-background font-semibold text-foreground shadow-[0_1px_2px_rgba(26,10,8,.12)]"
           : "font-medium text-white/85 hover:bg-white/10",
       )}
     >
@@ -197,7 +197,7 @@ function DomainItem({
         <Check
           size={13}
           className="ml-auto shrink-0"
-          style={{ color: gradient ? "#FF6B6A" : color }}
+          style={{ color: gradient ? "#FF5A47" : color }}
         />
       )}
     </button>
@@ -224,7 +224,7 @@ function NavItem({
       className={cn(
         "mb-[3px] flex w-full items-center gap-[10px] rounded-[10px] px-3 py-[10px] text-left text-[13.5px] transition-colors",
         active
-          ? "bg-background font-semibold text-foreground shadow-[0_1px_2px_rgba(38,0,0,.12)]"
+          ? "bg-background font-semibold text-foreground shadow-[0_1px_2px_rgba(26,10,8,.12)]"
           : "font-medium text-white/85 hover:bg-white/10",
       )}
     >

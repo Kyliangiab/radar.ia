@@ -3,7 +3,7 @@
 import { Loader2 } from "lucide-react";
 import type { Briefing } from "@/lib/types";
 
-const HL_COLORS = ["#C8663A", "#4E8D6E", "#5566C7", "#B4568F"];
+const HL_COLORS = ["#C8663A", "#4E8D6E", "#8E5FB8", "#B4568F"];
 
 export function BriefBanner({
   briefing,
@@ -21,8 +21,8 @@ export function BriefBanner({
   return (
     <div
       onClick={onOpen}
-      className="group mb-[30px] flex cursor-pointer items-stretch overflow-hidden rounded-[16px] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_34px_-14px_rgba(38,0,0,.18)]"
-      style={{ borderLeft: "4px solid #FF6B6A" }}
+      className="group mb-[30px] flex cursor-pointer items-stretch overflow-hidden rounded-[16px] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_34px_-14px_rgba(26,10,8,.18)]"
+      style={{ borderLeft: "4px solid #FF5A47" }}
     >
       <div className="min-w-0 flex-1 p-[22px_26px]">
         <div className="mb-[9px] font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#E0503F]">

@@ -3,90 +3,89 @@
 @tailwind utilities;
 
 /**
- * Thème clair "Radar" — règle 60/30/10.
- * Palette : FBF7EE (cream, fond 60%) · FF6B6A (corail, sidebar + accent 10%) ·
- * 260000 (noir, texte). Accents chauds conservés (ambre/terracotta) pour le
- * signal et les couvertures. Tokens shadcn/ui en HSL (Tailwind v3).
+ * Thème "Radar" — édition produit 4a.
+ * Palette : FFF7EA (cream, fond) · FF5A47 (corail, CTA/accents) · 1A0A08 (noir
+ * chaud, texte + sidebar sombre). Tokens shadcn/ui en HSL (Tailwind v3).
  */
 @layer base {
   :root {
-    --background: 42 55% 96%; /* FBF7EE cream */
-    --foreground: 0 100% 7%; /* 260000 noir chaud (texte) */
+    --background: 39 100% 96%; /* FFF7EA cream */
+    --foreground: 8 53% 7%; /* 1A0A08 noir chaud (texte) */
 
-    --card: 0 0% 100%; /* blanc pur : surfaces cartes (design 2a) */
-    --card-foreground: 0 100% 7%;
+    --card: 0 0% 100%; /* blanc pur : surfaces cartes */
+    --card-foreground: 8 53% 7%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 100% 7%;
+    --popover-foreground: 8 53% 7%;
 
-    --primary: 1 100% 71%; /* FF6B6A corail — CTA, nav active, focus (le "10 %") */
-    --primary-foreground: 0 0% 100%;
+    --primary: 6 100% 64%; /* FF5A47 corail — CTA, nav active, focus */
+    --primary-foreground: 40 60% 97%;
 
-    --secondary: 42 100% 50%; /* FFB200 ambre — signal, highlights secondaires */
-    --secondary-foreground: 20 90% 10%;
+    --secondary: 40 88% 59%; /* F2B03C ambre — warnings, highlights secondaires */
+    --secondary-foreground: 8 53% 10%;
 
-    --muted: 40 40% 93%; /* cream un peu plus profond (surfaces douces) */
-    --muted-foreground: 0 34% 27%; /* noir-brun atténué (≈ rgba(38,0,0,.6)) */
+    --muted: 39 60% 92%; /* cream un peu plus profond (surfaces douces) */
+    --muted-foreground: 8 30% 26%; /* noir-brun atténué (≈ rgba(26,10,8,.6)) */
 
-    --accent: 6 90% 94%; /* survols doux (corail très clair) */
-    --accent-foreground: 0 80% 20%;
+    --accent: 6 100% 94%; /* survols doux (corail très clair) */
+    --accent-foreground: 8 60% 20%;
 
-    --brand: 1 100% 71%; /* FF6B6A corail — logo, highlights */
-    --hot: 8 78% 57%; /* E0503F corail-rouge — signal fort */
+    --brand: 6 100% 64%; /* FF5A47 corail — logo, radar */
+    --hot: 8 74% 56%; /* E0503F corail-rouge — signal fort */
 
-    --destructive: 0 72% 45%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 8 74% 56%;
+    --destructive-foreground: 40 60% 97%;
 
-    --border: 30 18% 88%; /* neutre très discret (≈ rgba(38,0,0,.09)) */
-    --input: 30 18% 88%;
-    --ring: 1 100% 71%; /* corail */
+    --border: 30 26% 90%; /* neutre très discret (≈ rgba(26,10,8,.09)) */
+    --input: 30 26% 90%;
+    --ring: 6 100% 64%; /* corail */
 
     --radius: 0.75rem;
 
-    /* Sidebar corail (façon Claude) */
-    --sidebar: 1 100% 71%; /* FF6B6A */
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-muted: 6 100% 90%; /* texte secondaire sur corail */
-    --sidebar-accent: 0 0% 100%; /* pastille active (blanc) */
+    /* Sidebar sombre (design 4a) */
+    --sidebar: 8 53% 7%; /* 1A0A08 */
+    --sidebar-foreground: 39 100% 96%; /* cream */
+    --sidebar-muted: 39 50% 90%; /* texte secondaire clair */
+    --sidebar-accent: 0 0% 100%; /* pastille active (blanc/cream) */
   }
 
   /* ── Thème sombre (chaud) ── */
   .dark {
-    --background: 20 22% 8%; /* brun-noir profond */
-    --foreground: 42 55% 96%; /* cream */
+    --background: 12 40% 6%; /* brun-noir profond (≈ #161211) */
+    --foreground: 39 100% 96%; /* cream */
 
-    --card: 20 16% 12%;
-    --card-foreground: 42 55% 96%;
+    --card: 16 28% 11%;
+    --card-foreground: 39 100% 96%;
 
-    --popover: 20 16% 12%;
-    --popover-foreground: 42 55% 96%;
+    --popover: 16 28% 11%;
+    --popover-foreground: 39 100% 96%;
 
-    --primary: 1 100% 71%; /* corail (identique) */
-    --primary-foreground: 0 0% 100%;
+    --primary: 6 100% 64%; /* corail (identique) */
+    --primary-foreground: 40 60% 97%;
 
-    --secondary: 42 100% 50%;
-    --secondary-foreground: 20 90% 10%;
+    --secondary: 40 88% 59%;
+    --secondary-foreground: 8 53% 10%;
 
-    --muted: 20 12% 17%;
-    --muted-foreground: 40 22% 68%; /* texte atténué clair */
+    --muted: 14 16% 16%;
+    --muted-foreground: 39 30% 70%; /* texte atténué clair */
 
-    --accent: 20 14% 20%;
-    --accent-foreground: 42 55% 96%;
+    --accent: 14 18% 20%;
+    --accent-foreground: 39 100% 96%;
 
-    --brand: 1 100% 71%;
+    --brand: 6 100% 64%;
     --hot: 8 90% 66%;
 
-    --destructive: 0 72% 52%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 8 84% 62%;
+    --destructive-foreground: 40 60% 97%;
 
-    --border: 30 10% 22%;
-    --input: 30 10% 22%;
-    --ring: 1 100% 71%;
+    --border: 20 12% 20%;
+    --input: 20 12% 20%;
+    --ring: 6 100% 64%;
 
-    /* Sidebar : corail légèrement assombri en sombre */
-    --sidebar: 2 62% 58%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-muted: 6 60% 90%;
+    /* Sidebar reste sombre */
+    --sidebar: 10 45% 5%;
+    --sidebar-foreground: 39 100% 96%;
+    --sidebar-muted: 39 40% 88%;
     --sidebar-accent: 0 0% 100%;
   }
 

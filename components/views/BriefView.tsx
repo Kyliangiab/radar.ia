@@ -4,7 +4,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import type { Article, Briefing } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 
-const HL_COLORS = ["#C8663A", "#4E8D6E", "#5566C7", "#B4568F"];
+const HL_COLORS = ["#C8663A", "#4E8D6E", "#8E5FB8", "#B4568F"];
 
 export function BriefView({
   briefing,
@@ -45,7 +45,7 @@ export function BriefView({
       {/* Hero décoratif */}
       <div
         className="mb-9 flex h-[230px] items-end overflow-hidden rounded-[18px] p-7"
-        style={{ background: "linear-gradient(135deg,#FF6B6A 0%,#260000 120%)" }}
+        style={{ background: "linear-gradient(135deg,#FF5A47 0%,#1A0A08 120%)" }}
       >
         <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/70">
           Radar · signal du jour
@@ -112,7 +112,7 @@ export function BriefView({
             </div>
             <div
               className="flex flex-col justify-center rounded-[16px] p-[22px_24px]"
-              style={{ background: "rgba(255,107,106,.12)", border: "1px solid rgba(255,107,106,.3)" }}
+              style={{ background: "rgba(255,90,71,.12)", border: "1px solid rgba(255,90,71,.3)" }}
             >
               <div className="mb-2.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[#E0503F]">
                 La punchline de secours
