@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, Bookmark, Check, Share2, Loader2, ArrowUpRight } from "lucide-react";
 import type { Article, CategoryId } from "@/lib/types";
 import { categoryColor, CATEGORY_MAP } from "@/lib/categories";
@@ -53,8 +53,17 @@ export function ArticleDrawer({
   const [lang, setLang] = useState<"vo" | "fr">("vo");
   const [frMap, setFrMap] = useState<Record<string, string>>({});
   const [translating, setTranslating] = useState(false);
+  // Animation entrée/sortie du tiroir.
+  const [entered, setEntered] = useState(false);
+  const [closing, setClosing] = useState(false);
 
-  // Fermeture au clavier + reset à chaque article.
+  // Fermeture animée : joue la sortie puis prévient le parent.
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(onClose, 280);
+  }, [onClose]);
+
+  // Fermeture au clavier + reset à chaque article + animation d'entrée.
   useEffect(() => {
     if (!article) return;
     setMode("resume");
@@ -63,6 +72,9 @@ export function ArticleDrawer({
     setAskAnswer("");
     setLang("vo");
     setFrMap({});
+    setClosing(false);
+    setEntered(false);
+    const raf = requestAnimationFrame(() => setEntered(true));
     // Points/pullquote : dérivés du résumé/snippet, puis enrichis via Groq si dispo.
     const base = article.summary || article.snippet || "";
     setPoints(sentences(base).slice(0, 3));
@@ -80,13 +92,14 @@ export function ArticleDrawer({
         if (d.pullquote) setPullquote(d.pullquote);
       })
       .catch(() => {});
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && handleClose();
     window.addEventListener("keydown", onKey);
     return () => {
       cancelled = true;
+      cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
     };
-  }, [article, onClose]);
+  }, [article, handleClose]);
 
   const relatedCards = useMemo(
     () =>
@@ -187,10 +200,31 @@ export function ArticleDrawer({
     });
   }
 
+  const open = entered && !closing;
+
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-[#1A0A08]/60 backdrop-blur-[3px]" onClick={onClose} aria-hidden="true" />
-      <aside className="absolute right-0 top-0 h-full w-full max-w-[452px] overflow-y-auto bg-background p-[22px_26px_32px] shadow-[-24px_0_48px_-18px_rgba(26,10,8,.35)]">
+      <div
+        className="absolute inset-0 bg-[#1A0A08]/60 backdrop-blur-[3px] transition-opacity duration-300"
+        style={{ opacity: open ? 1 : 0 }}
+        onClick={handleClose}
+        aria-hidden="true"
+      />
+      {/* Poignée de fermeture au bord gauche du tiroir — montre qu'on peut sortir */}
+      <button
+        onClick={handleClose}
+        aria-label="Fermer le panneau"
+        title="Fermer (Échap)"
+        className="group absolute top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 place-items-center transition-opacity duration-300 sm:grid"
+        style={{ right: 560, opacity: open ? 1 : 0 }}
+      >
+        <span className="h-16 w-1.5 rounded-full bg-[#FFF7EA]/60 transition-all group-hover:h-24 group-hover:bg-primary" />
+      </button>
+
+      <aside
+        className="absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto bg-background p-[22px_28px_32px] shadow-[-24px_0_48px_-18px_rgba(26,10,8,.35)] transition-transform duration-300 ease-[cubic-bezier(.4,0,.2,1)]"
+        style={{ transform: open ? "translateX(0)" : "translateX(100%)" }}
+      >
         {/* Header */}
         <div className="mb-4 flex items-center">
           <div className="flex items-center gap-2">
@@ -200,13 +234,18 @@ export function ArticleDrawer({
             </span>
             <RelevancePill score={a.heat} className="ml-1" />
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Fermer"
-            className="ml-auto grid h-[30px] w-[30px] place-items-center rounded-full border border-border bg-card text-foreground/55 hover:text-foreground"
-          >
-            <X size={15} />
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <kbd className="hidden rounded-[5px] border border-border px-1.5 py-0.5 font-mono text-[9px] font-semibold text-foreground/40 sm:inline">
+              Échap
+            </kbd>
+            <button
+              onClick={handleClose}
+              aria-label="Fermer"
+              className="grid h-[30px] w-[30px] place-items-center rounded-full border border-border bg-card text-foreground/55 transition-colors hover:border-primary hover:text-primary"
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
 
         <div className="mb-3 flex items-start justify-between gap-3">
