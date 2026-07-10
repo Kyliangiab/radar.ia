@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Sparkles,
   Newspaper,
@@ -17,7 +17,6 @@ import { BRAND } from "@/config/brand";
 import { CATEGORIES, RAMP } from "@/lib/categories";
 import type { CategoryId, FluxView } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Logo } from "./Logo";
 
 export interface AccountUser {
   name: string;
@@ -61,17 +60,28 @@ export function Sidebar({
 }) {
   const domains = CATEGORIES.filter((c) => c.id !== "all");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [edition, setEdition] = useState("Éd. du jour · Nº 187");
   const total = Object.values(domainCounts ?? {}).reduce((s, n) => s + (n ?? 0), 0);
+
+  // Libellé d'édition daté (côté client pour éviter le mismatch d'hydratation).
+  useEffect(() => {
+    const d = new Date();
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    setEdition(`Éd. ${dd}.${mm} · Nº 187`);
+  }, []);
 
   return (
     <div className="flex h-full flex-col bg-sidebar px-[15px] py-[22px] text-white">
-      {/* Logo */}
+      {/* Logo — carré corail + anneau (design 4a) */}
       <div className="flex items-center gap-[11px] px-2 pb-6 pt-1">
-        <Logo size={36} />
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-primary">
+          <div className="h-[13px] w-[13px] rounded-full border-[3px] border-[#1A0A08]" />
+        </div>
         <div className="min-w-0">
           <div className="text-lg font-bold leading-none">{BRAND.name}</div>
-          <div className="mt-1 truncate text-[10.5px] tracking-[0.02em] text-white/70">
-            veille tech · UI &amp; IA
+          <div className="mt-1 truncate font-mono text-[9.5px] font-semibold uppercase tracking-[0.1em] text-white/55">
+            {edition}
           </div>
         </div>
       </div>

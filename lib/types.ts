@@ -1,4 +1,4 @@
-export type CategoryId = "all" | "tech" | "biz" | "data" | "ux";
+export type CategoryId = "all" | "tech" | "biz" | "data" | "ux" | "autre";
 
 // Vues de l'app : le fil (défaut), le brief, récents, enregistrés, tendances, sources.
 export type FluxView = "fil" | "brief" | "recents" | "enregistres" | "tendances" | "sources";

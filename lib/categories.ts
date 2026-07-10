@@ -46,6 +46,12 @@ export const CATEGORIES: CategoryDef[] = [
     color: "#B4568F", // magenta
     devtoTags: ["design", "ux"],
   },
+  {
+    id: "autre",
+    label: "Autre",
+    color: "#8A7A3F", // ocre — 5e domaine du design 4a
+    devtoTags: [],
+  },
 ];
 
 export const CATEGORY_MAP: Record<CategoryId, CategoryDef> = CATEGORIES.reduce(
