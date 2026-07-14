@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { BRAND } from "@/config/brand";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabaseISR } from "@/lib/supabase";
 import { AuthRedirect } from "@/components/AuthRedirect";
+
+// ISR : la landing est régénérée au plus toutes les 10 min (les compteurs
+// bougent au rythme du cron d'ingestion ~6 h) → pas de hit DB par visite.
+export const revalidate = 600;
 
 /**
  * Landing publique de Radar (racine « / »). L'appli vit sous « /app ».
@@ -132,7 +136,7 @@ export default async function Landing() {
   // Vrais compteurs (T10) : total d'articles + sources globales actives.
   // Seuls ces 2 KPI sont branchés sur des données réelles ; le reste du copy
   // chiffré (%, temps gagné, score) reste à traiter en J1.
-  const sb = getSupabase();
+  const sb = getSupabaseISR();
   let articleCount = 0;
   let sourcesActives = 0;
   if (sb) {

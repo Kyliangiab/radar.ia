@@ -217,6 +217,14 @@
 - Reste J0 : **T11** (vitest + CI). Dette J1 : témoignages landing, notif, Next CVE.
 - Prochaine étape : T11.
 
+## 2026-07-14 — T10 addendum : ISR de la landing
+- `lib/supabase.ts` : `getSupabase()` reste `no-store` (routes API fraîches) ;
+  ajout `getSupabaseISR(revalidate=600)` (fetch `next.revalidate`).
+- `app/page.tsx` : `export const revalidate = 600` + `getSupabaseISR()`.
+- `next build` : `/` = `○ (Static)` (ISR, régénérée ≤ 10 min) avec compteurs
+  réels (422/8) prérendus ; routes API = `ƒ (Dynamic)`. Plus de hit DB par
+  visite sur la landing.
+
 ## 2026-07-14 — T9 sécurité des routes
 - `lib/apiGuard.ts` (nouveau) : `requireUser` (Bearer → getUser → 401),
   `clientIp` (x-forwarded-for), `rateLimit` (Map mémoire, fenêtre glissante ;
