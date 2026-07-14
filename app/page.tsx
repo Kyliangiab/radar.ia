@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BRAND } from "@/config/brand";
+import { getSupabase } from "@/lib/supabase";
 import { AuthRedirect } from "@/components/AuthRedirect";
 
 /**
@@ -127,7 +128,24 @@ const SOURCES = [
 
 /* ── Page ──────────────────────────────────────────────────────────── */
 
-export default function Landing() {
+export default async function Landing() {
+  // Vrais compteurs (T10) : total d'articles + sources globales actives.
+  // Seuls ces 2 KPI sont branchés sur des données réelles ; le reste du copy
+  // chiffré (%, temps gagné, score) reste à traiter en J1.
+  const sb = getSupabase();
+  let articleCount = 0;
+  let sourcesActives = 0;
+  if (sb) {
+    const [{ count: ac }, { count: sc }] = await Promise.all([
+      sb.from("articles").select("id", { count: "exact", head: true }),
+      sb.from("sources").select("id", { count: "exact", head: true }).eq("active", true),
+    ]);
+    articleCount = ac ?? 0;
+    sourcesActives = sc ?? 0;
+  }
+  const nA = String(articleCount);
+  const nS = String(sourcesActives);
+
   return (
     <div style={{ background: CREAM, color: INK }} className="min-h-screen font-sans">
       <AuthRedirect />
@@ -602,7 +620,7 @@ export default function Landing() {
                 <div className="mt-5 border-t pt-4" style={{ borderColor: "rgba(26,10,8,.14)" }}>
                   <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: "rgba(26,10,8,.42)" }}>Les chiffres du jour</div>
                   <div className="grid grid-cols-4 gap-2.5">
-                    {[["247", CORAL, "articles analysés"], ["86", CREAM, "sources actives"], ["3h20", CREAM, "gagnées / semaine"], ["78", "#4E8D6E", "score moyen"]].map(([v, c, l]) => (
+                    {[[nA, CORAL, "articles analysés"], [nS, CREAM, "sources actives"], ["3h20", CREAM, "gagnées / semaine"], ["78", "#4E8D6E", "score moyen"]].map(([v, c, l]) => (
                       <div key={l} className="rounded-[10px] px-3 py-2.5" style={{ background: INK, color: CREAM }}>
                         <div className="text-[22px] font-bold leading-none tracking-[-0.02em]" style={{ color: c }}>{v}</div>
                         <div className="mt-1.5 text-[9.5px] leading-tight" style={{ color: "rgba(255,247,234,.55)" }}>{l}</div>
@@ -746,7 +764,7 @@ export default function Landing() {
               <div className="mb-4 mt-1 text-[11px]" style={{ color: "rgba(255,247,234,.5)" }}>Ce que Radar détecte, mesure et classe — sans que tu aies à lire 247 articles.</div>
 
               <div className="mb-3 grid grid-cols-4 gap-2.5">
-                {[["247", "articles analysés"], ["86", "sources actives"], ["3 h 20", "lecture économisée"], ["78/100", "pertinence moy."]].map(([v, l]) => (
+                {[[nA, "articles analysés"], [nS, "sources actives"], ["3 h 20", "lecture économisée"], ["78/100", "pertinence moy."]].map(([v, l]) => (
                   <div key={l} className="rounded-[10px] px-3 py-3" style={{ background: "rgba(255,247,234,.06)" }}>
                     <div className="text-[19px] font-bold leading-none">{v}</div>
                     <div className="mt-1.5 text-[9px] leading-tight" style={{ color: "rgba(255,247,234,.5)" }}>{l}</div>

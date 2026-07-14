@@ -148,3 +148,22 @@ ingestion email · changelog "nouveautés" dans le menu · backups
   écoles (un prof veut voir ce qu'une source donnée a publié). Cible : J1
   (le registre de sources unifié rend le filtre naturel). NE PAS implémenter
   en J0 (réparation, pas nouvelles features).
+
+- **Landing publique `app/page.tsx` — reste de l'honnêteté (suite T10).** T10 n'a
+  branché QUE les 2 compteurs KPI (articles / sources actives, blocs l.605+749).
+  Restent à traiter :
+  - **[PRIORITÉ / risque légal] Témoignages fabriqués** : « Léo P., CTO @
+    Payflow », « Manon B., VC @ Serena », designer @ Doctolib (vraies boîtes,
+    personnes inventées). À retirer ou remplacer par du réel avant toute
+    démarche commerciale (école/fac).
+  - Faux chiffres restants : `+47 %/+142 %/+88 %` (l.724, 764), breakdown
+    `38/27/19/11/5` (l.783), `3h20`, `78/100`, `4 200 articles`, articles
+    factices (l.373, 478, 585, 658, 1212, 1245), metadata « 86 sources » (l.15).
+    → brancher sur des vraies données ou retirer.
+  - « Nº 187 » en dur dans les maquettes landing (l.238, 323, 374, 382, 663,
+    755, 1206, 1255) → aligner sur le vrai Nº (jours d'ingestion) ou retirer.
+    (L'app authentifiée est déjà corrigée en T10.)
+
+- **Notifications « X min avant la collecte ».** Le RightRail annonçait
+  « notifié 5 min avant » (retiré en T10 car non étayé). Construire la vraie
+  feature de notification (push/email) avant de réafficher cette promesse.

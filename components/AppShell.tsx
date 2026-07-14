@@ -53,6 +53,7 @@ export function AppShell({
       savedCount={savedCount}
       domainCounts={domainCounts}
       sourcesCount={sourcesCount}
+      ingestDays={stats?.ingestDays}
       user={user}
       onLogout={onLogout}
       onNavigate={() => setMobileOpen(false)}
@@ -83,6 +84,7 @@ export function AppShell({
           onClearSearch={onClearSearch}
           onBurger={() => setMobileOpen(true)}
           notifs={notifs}
+          lastFetchedAt={stats?.lastFetchedAt ?? null}
         />
         <main className="flex-1 overflow-y-auto px-4 pb-11 pt-7 [scrollbar-gutter:stable] sm:px-9">
           {children}

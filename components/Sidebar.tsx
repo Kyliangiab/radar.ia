@@ -45,6 +45,7 @@ export function Sidebar({
   savedCount,
   domainCounts,
   sourcesCount,
+  ingestDays,
   user,
   onLogout,
   onNavigate,
@@ -56,19 +57,21 @@ export function Sidebar({
   savedCount: number;
   domainCounts?: Partial<Record<CategoryId, number>>;
   sourcesCount?: number;
+  ingestDays?: number;
   user: AccountUser;
   onLogout?: () => void;
   onNavigate?: () => void;
 }) {
   const domains = CATEGORIES.filter((c) => c.id !== "all");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [edition, setEdition] = useState("Éd. du jour · Nº 187");
+  const [edition, setEdition] = useState(""); // vide au SSR → pas de "187" inventé
   const total = Object.values(domainCounts ?? {}).reduce((s, n) => s + (n ?? 0), 0);
 
   // Libellé d'édition daté (côté client pour éviter le mismatch d'hydratation).
+  // Nº = vrais jours d'ingestion (ingestDays) ; absent tant que stats non chargées.
   useEffect(() => {
-    setEdition(editionInfo().label);
-  }, []);
+    setEdition(editionInfo(new Date(), ingestDays).label);
+  }, [ingestDays]);
 
   return (
     <div className="flex h-full flex-col bg-sidebar px-[15px] py-[22px] text-white">
@@ -173,7 +176,7 @@ export function Sidebar({
           <div className="min-w-0 flex-1 leading-[1.25]">
             <div className="truncate text-[12.5px] font-semibold text-white">{user.name}</div>
             <div className="truncate text-[10.5px] text-white/70">
-              {user.plan ?? user.email ?? "Plan Max"}
+              {user.plan ?? user.email ?? "Compte connecté"}
             </div>
           </div>
           <ChevronDown

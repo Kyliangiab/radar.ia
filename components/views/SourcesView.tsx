@@ -23,7 +23,6 @@ type Row = {
   kind: "global" | "user";
 };
 
-const FREQS = ["Temps réel", "Toutes les heures", "2× / jour", "Quotidien"];
 const ARCHIVE_MS = 72 * 3600 * 1000; // fenêtre de restauration : 72 h
 
 // "rss" + "tech" → "RSS · Tech" (comme le design).
@@ -48,7 +47,6 @@ export function SourcesView({
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
-  const [freq, setFreq] = useState("Toutes les heures");
   const [filter, setFilter] = useState<"all" | "active" | "paused" | "archived">("all");
   const [prefsMap, setPrefsMap] = useState<Record<string, PrefRow>>({});
   const [uid, setUid] = useState<string | null>(null);
@@ -122,10 +120,15 @@ export function SourcesView({
         setError("Ajout impossible. Réessaie.");
       } else {
         setUrl("");
-        setNote(`« ${d.name} » ajoutée — ${d.count} article${d.count > 1 ? "s" : ""} collecté${d.count > 1 ? "s" : ""}.`);
+        // Deux chiffres honnêtes (T10) : trouvés (collectés) vs ajoutés au fil
+        // (enrichis `ok`). Le cap T8 + les doublons expliquent l'écart.
+        const found = d.count ?? 0;
+        const added = d.ok ?? 0;
+        const s = (n: number) => (n > 1 ? "s" : "");
+        setNote(`« ${d.name} » ajoutée — ${found} trouvé${s(found)}, ${added} ajouté${s(added)} au fil.`);
         toast(
-          d.count > 0
-            ? `Source ajoutée · ${d.count} article${d.count > 1 ? "s" : ""} dans ton fil`
+          found > 0
+            ? `Source ajoutée · ${found} article${s(found)} trouvé${s(found)}, ${added} ajouté${s(added)} au fil`
             : `Source ajoutée · ${d.name} (aucun article récent)`,
           { icon: "+", color: "#4E8D6E" },
         );
@@ -215,11 +218,6 @@ export function SourcesView({
     toast("Source restaurée", { icon: "↩", color: "#4E8D6E" });
   }
 
-  function pickFreq(f: string) {
-    setFreq(f);
-    toast(`Fréquence · ${f}`, { icon: "⏱", color: "#4E8D6E" });
-  }
-
   return (
     <div>
       {scanning && <ScanOverlay />}
@@ -229,27 +227,6 @@ export function SourcesView({
         Radar écoute ces sources en continu, dédoublonne, résume avec l'IA — tu décides quelles voix
         comptent.
       </p>
-
-      {/* Fréquence de collecte */}
-      <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-foreground/40">
-        Fréquence de collecte · {freq}
-      </div>
-      <div className="mb-7 flex flex-wrap gap-2">
-        {FREQS.map((f) => (
-          <button
-            key={f}
-            onClick={() => pickFreq(f)}
-            className={cn(
-              "rounded-full border px-[15px] py-[9px] text-[12.5px] font-medium transition-colors",
-              freq === f
-                ? "border-transparent bg-[#1A0A08] text-[#FFF7EA]"
-                : "border-border bg-card text-foreground/60 hover:text-foreground",
-            )}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
 
       {/* Ajouter une source */}
       <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-foreground/40">
@@ -364,14 +341,19 @@ export function SourcesView({
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           {shown.map((s) => {
             const paused = isPaused(s.id);
+            // Le compte vient du feed CHARGÉ : tant qu'il ne l'est pas, on ne
+            // prétend pas « 0 » ni un statut santé (T10 — honnêteté du compteur).
+            const feedLoaded = articles.length > 0;
             const count = countBySource[s.name] ?? 0;
-            const health = paused ? "paused" : count > 0 ? "ok" : "slow";
+            const health = paused ? "paused" : !feedLoaded ? "unknown" : count > 0 ? "ok" : "slow";
             const healthMeta =
               health === "ok"
                 ? { label: "OK", color: "#4E8D6E", bg: "rgba(78,141,110,.14)" }
                 : health === "slow"
                   ? { label: "Lent", color: "#C8663A", bg: "rgba(200,102,58,.16)" }
-                  : { label: "En pause", color: "rgba(26,10,8,.5)", bg: "rgba(26,10,8,.07)" };
+                  : health === "unknown"
+                    ? { label: "—", color: "rgba(26,10,8,.5)", bg: "rgba(26,10,8,.07)" }
+                    : { label: "En pause", color: "rgba(26,10,8,.5)", bg: "rgba(26,10,8,.07)" };
             return (
               <div
                 key={s.id}
@@ -394,7 +376,7 @@ export function SourcesView({
                 </div>
 
                 <div className="font-mono text-[10.5px] tracking-[0.02em] text-foreground/55">
-                  {count} art. · dans le fil
+                  {feedLoaded ? `${count} art.` : "—"} · dans le fil
                 </div>
 
                 <div className="flex gap-1.5">

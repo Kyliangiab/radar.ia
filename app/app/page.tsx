@@ -250,31 +250,32 @@ export default function Home() {
   );
 
   // Compteur réel de sources surveillées (globales + flux perso) pour la sidebar.
+  // MÊME définition que SourcesView (`rows.length`) : (globales actives ∪ perso)
+  // MOINS celles réellement retirées (removed) parmi CES ids (T10 — on ne
+  // soustrait pas des prefs orphelines → plus de divergence entre les 2 vues).
   const [sourcesTotal, setSourcesTotal] = useState<number | undefined>(undefined);
   useEffect(() => {
     let alive = true;
     (async () => {
-      let g = 0;
+      let globalIds: string[] = [];
       try {
         const d = await fetch("/api/sources").then((r) => r.json());
-        g = (d.sources ?? []).length;
+        globalIds = (d.sources ?? []).map((s: { id: string }) => s.id);
       } catch {}
-      let u = 0;
-      let removed = 0;
+      let userIds: string[] = [];
+      const removedSet = new Set<string>();
       const sb = getSupabaseBrowser();
       if (sb) {
-        const { count } = await sb
-          .from("user_sources")
-          .select("id", { count: "exact", head: true });
-        u = count ?? 0;
-        // Globales retirées par l'utilisateur (préférences persistées).
-        const { count: rem } = await sb
+        const { data: us } = await sb.from("user_sources").select("id");
+        userIds = (us ?? []).map((r: { id: string }) => r.id);
+        const { data: prefs } = await sb
           .from("user_source_prefs")
-          .select("source_id", { count: "exact", head: true })
+          .select("source_id")
           .eq("removed", true);
-        removed = rem ?? 0;
+        for (const p of prefs ?? []) removedSet.add((p as { source_id: string }).source_id);
       }
-      if (alive) setSourcesTotal(Math.max(0, g + u - removed));
+      const watched = [...globalIds, ...userIds].filter((id) => !removedSet.has(id)).length;
+      if (alive) setSourcesTotal(watched);
     })();
     return () => {
       alive = false;
@@ -297,10 +298,11 @@ export default function Home() {
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   // Libellé d'édition daté (client → évite le mismatch d'hydratation).
-  const [edition, setEdition] = useState("Éd. du jour · Nº 187");
+  // Nº = vrais jours d'ingestion (stats.ingestDays) ; pas de "187" inventé.
+  const [edition, setEdition] = useState("");
   useEffect(() => {
-    setEdition(editionInfo().label);
-  }, []);
+    setEdition(editionInfo(new Date(), stats?.ingestDays).label);
+  }, [stats]);
 
   const onDomain = useCallback((c: CategoryId) => {
     setResults(null);

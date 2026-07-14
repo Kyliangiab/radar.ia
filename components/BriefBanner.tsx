@@ -39,7 +39,7 @@ export function BriefBanner({
       <div className="relative min-w-0 flex-1 p-[26px_32px]">
         <div className="mb-2.5 inline-flex items-center gap-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-primary">
           <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-primary" />
-          Le brief du jour · Nº 187
+          Le brief du jour
         </div>
         <div className="mb-1.5 text-[20px] font-bold leading-[1.15] tracking-[-0.012em] text-[#FFF7EA]">
           {briefing?.headline || "Ce qui ressort du flux aujourd'hui."}

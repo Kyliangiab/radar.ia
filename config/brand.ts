@@ -14,10 +14,6 @@ export const BRAND = {
   year: new Date().getFullYear(),
 };
 
-// Compte affiché en bas de la sidebar + salutation du hero.
-export const USER = {
-  name: "Kylian Giabiconi",
-  firstName: "Kylian",
-  initials: "KG",
-  plan: "Plan Max",
-};
+// NB : le compte affiché (sidebar + hero) vient de la SESSION Supabase réelle
+// (cf. app/app/page.tsx), pas d'un objet en dur. L'ancien export `USER`
+// (nom réel + "Plan Max") était du code mort trompeur → supprimé (T10).

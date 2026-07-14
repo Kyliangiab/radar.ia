@@ -15,11 +15,14 @@ export function TendancesView({
   briefing: Briefing | null;
 }) {
   const [period, setPeriod] = useState("7 j");
-  const [edition, setEdition] = useState("Éd. du jour · Nº 187");
+  const [edition, setEdition] = useState(""); // pas de "187" inventé au SSR
   const [volStats, setVolStats] = useState<StatsResp | null>(null);
   useEffect(() => {
-    setEdition(editionInfo().label);
-    fetchStats().then(setVolStats);
+    setEdition(editionInfo(new Date()).label); // date seule immédiate
+    fetchStats().then((s) => {
+      setVolStats(s);
+      setEdition(editionInfo(new Date(), s?.ingestDays).label); // + Nº réel
+    });
   }, []);
   const hasHist = !!volStats?.hasHistory;
 

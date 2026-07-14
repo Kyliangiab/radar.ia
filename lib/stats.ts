@@ -10,6 +10,9 @@ export type StatsResp = {
   articleCount?: number;
   headline?: string | null;
   panels?: { n: string; topic: string; label: string; color: string; desc: string }[];
+  // Honnêteté (T10) : Nº d'édition = jours d'ingestion réels ; dernière collecte.
+  ingestDays?: number;
+  lastFetchedAt?: string | null;
 };
 
 export async function fetchStats(): Promise<StatsResp | null> {

@@ -30,8 +30,11 @@ export function AuthScreen() {
   const [newsLang, setNewsLang] = useState<"vo" | "fr">("fr");
 
   useEffect(() => {
-    setEdition(editionInfo().label);
-    fetchStats().then(setStats);
+    setEdition(editionInfo(new Date()).label); // date seule immédiate
+    fetchStats().then((s) => {
+      setStats(s);
+      setEdition(editionInfo(new Date(), s?.ingestDays).label); // + Nº réel
+    });
   }, []);
 
   // Traduit en français le hero + les descriptions (titres sources en anglais).
@@ -130,18 +133,19 @@ export function AuthScreen() {
     else setInfo("Email de réinitialisation envoyé.");
   }
 
-  // Repli si l'API stats n'a pas encore répondu (avant chargement).
+  // Repli NEUTRE avant réponse de l'API (T10 : jamais de faits inventés — on
+  // gardait ici « Series A ↑ 22 % » etc. ; remplacé par un placeholder honnête).
   const FALLBACK_PANELS = [
-    { n: "01", topic: "data", label: "Data / IA", color: "#8E5FB8", desc: "Petits modèles à < 3 B" },
-    { n: "02", topic: "tech", label: "Tech", color: "#C8663A", desc: "WebGPU stabilise en prod" },
-    { n: "03", topic: "biz", label: "Business", color: "#4E8D6E", desc: "Fundraise Series A ↑ 22 %" },
+    { n: "01", topic: "data", label: "Data / IA", color: "#8E5FB8", desc: "Analyse en cours…" },
+    { n: "02", topic: "tech", label: "Tech", color: "#C8663A", desc: "Analyse en cours…" },
+    { n: "03", topic: "biz", label: "Business", color: "#4E8D6E", desc: "Analyse en cours…" },
   ];
 
   // Contenu dynamique du panneau éditorial (vraies données). Traduit en FR
   // si newsLang === "fr" et qu'une traduction est dispo, sinon langue d'origine.
   const isFr = newsLang === "fr";
   const rawPanels = stats?.panels?.length ? stats.panels : FALLBACK_PANELS;
-  const rawHeadline = stats?.headline || "Les modèles < 3 B rattrapent GPT-4.";
+  const rawHeadline = stats?.headline || "Analyse des dernières sources…";
   const headline = isFr ? tr.hero || rawHeadline : rawHeadline;
   const panels = rawPanels.map((p, i) => ({ ...p, desc: isFr ? tr.descs?.[i] ?? p.desc : p.desc }));
   const isTranslated = isFr && !!tr.hero; // vraie traduction affichée

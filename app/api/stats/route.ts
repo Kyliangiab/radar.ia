@@ -16,7 +16,8 @@ export async function GET() {
   const base = { hasHistory: false, overallVariation: 0, series: [] as { day: string; count: number }[], topics: [] as unknown[] };
 
   const supabase = getSupabase();
-  if (!supabase) return NextResponse.json({ ...base, articleCount: 0, headline: null, panels: [] });
+  if (!supabase)
+    return NextResponse.json({ ...base, articleCount: 0, headline: null, panels: [], ingestDays: 0, lastFetchedAt: null });
 
   // ── Données de l'écran d'auth (toujours calculées, publiques) ──
   //  · articleCount : total réel d'articles analysés
@@ -55,7 +56,20 @@ export async function GET() {
       color: CATEGORY_MAP[cat as CategoryId]?.color ?? "#FF5A47",
       desc: v.top && v.top !== headline ? v.top : `${v.count} article${v.count > 1 ? "s" : ""} cette semaine`,
     }));
-  const authData = { articleCount: articleCount ?? 0, headline, panels };
+  // ── Métadonnées d'honnêteté (T10) ──
+  //  · ingestDays  : nb de jours d'ingestion RÉELS (snapshots distincts) → Nº d'édition.
+  //  · lastFetchedAt : dernière collecte réelle (max fetched_at) → "il y a Xh".
+  const { data: allDays } = await supabase.from("daily_topic_volume").select("day");
+  const ingestDays = new Set((allDays ?? []).map((r: { day: string }) => r.day)).size;
+  const { data: lastRow } = await supabase
+    .from("articles")
+    .select("fetched_at")
+    .not("fetched_at", "is", null)
+    .order("fetched_at", { ascending: false })
+    .limit(1);
+  const lastFetchedAt = lastRow?.[0]?.fetched_at ?? null;
+
+  const authData = { articleCount: articleCount ?? 0, headline, panels, ingestDays, lastFetchedAt };
 
   // 14 jours suffisent pour "cette semaine vs semaine passée".
   const since = new Date();

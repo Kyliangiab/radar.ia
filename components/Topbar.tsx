@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Menu, Loader2 } from "lucide-react";
 import type { Article } from "@/lib/types";
 import type { Notif } from "@/lib/notifications";
+import { timeAgo } from "@/lib/format";
 import { ThemeToggle } from "./ThemeToggle";
 
 const SEEN_KEY = "radar:seen-notifs";
@@ -13,17 +14,18 @@ export function Topbar({
   onClearSearch,
   onBurger,
   notifs = [],
+  lastFetchedAt = null,
 }: {
   onResults: (articles: Article[], query: string) => void;
   onClearSearch: () => void;
   onBurger: () => void;
   notifs?: Notif[];
+  lastFetchedAt?: string | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [now, setNow] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const [seen, setSeen] = useState<Set<string>>(new Set());
 
@@ -51,14 +53,6 @@ export function Topbar({
       return next;
     });
   }
-
-  useEffect(() => {
-    const tick = () =>
-      setNow(new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
-    tick();
-    const id = setInterval(tick, 30000);
-    return () => clearInterval(id);
-  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -153,16 +147,19 @@ export function Topbar({
           )}
         </div>
 
-        {/* Thème · Synchro · Notifications */}
+        {/* Thème · Dernière collecte · Notifications */}
         <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
           <ThemeToggle />
 
-          <div className="hidden items-center gap-2 rounded-full bg-[#4E8D6E]/[0.14] px-[14px] py-[7px] md:flex">
-            <span className="h-[7px] w-[7px] animate-pulseDot rounded-full bg-[#4E8D6E]" />
-            <span className="whitespace-nowrap text-[11.5px] font-semibold text-[#2F6549] dark:text-[#5FAE8A]">
-              Synchro{now && ` · ${now}`}
-            </span>
-          </div>
+          {/* Dernière collecte RÉELLE (max fetched_at). Masqué si inconnu. */}
+          {lastFetchedAt && (
+            <div className="hidden items-center gap-2 rounded-full bg-[#4E8D6E]/[0.14] px-[14px] py-[7px] md:flex">
+              <span className="h-[7px] w-[7px] rounded-full bg-[#4E8D6E]" />
+              <span className="whitespace-nowrap text-[11.5px] font-semibold text-[#2F6549] dark:text-[#5FAE8A]">
+                Dernière collecte · {timeAgo(lastFetchedAt)}
+              </span>
+            </div>
+          )}
 
           <div className="relative">
             <button

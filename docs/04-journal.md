@@ -177,6 +177,46 @@
   T10 (UI honnête), T11 (vitest/CI). + dette : bump Next (CVE critique, J1).
 - Prochaine étape : T9.
 
+## 2026-07-14 — T10 UI honnête
+- **Cartographie (3 agents)** : `/api/stats` et `TendancesView` déjà honnêtes ;
+  `config/brand.ts USER` = code mort ; compte réel vient de la session.
+- **Données réelles** : `/api/stats` expose `ingestDays` (jours d'ingestion
+  distincts, all-time = 2) et `lastFetchedAt` (max fetched_at). Type `StatsResp`
+  étendu.
+- **Nº d'édition** (`lib/edition.ts`) : EPOCH date-dérivé supprimé. `editionInfo(d,
+  ingestDays)` → `Nº` = vrais jours d'ingestion (décision Kylian), sinon date
+  seule. Plus de « 187 » (page.tsx, Sidebar, TendancesView, AuthScreen +
+  BriefBanner). Sidebar/Topbar reçoivent stats via AppShell.
+- **Topbar** : « Synchro HH:MM » (horloge locale déguisée) → « Dernière collecte ·
+  il y a Xh » depuis `lastFetchedAt` (`timeAgo`), masqué si null. Point « live »
+  non-pulsant.
+- **RightRail** : `nextBrief` 06:00 fictif → `nextCollect` aligné cron réel
+  (00/06/12/18 UTC) ; « Ton rituel » → « Prochaine collecte » ; « notifié 5 min
+  avant » retiré (→ backlog) ; faux « +47 % »/sparkline/« 03 » quand !hasHistory
+  → « Historique en cours de constitution ».
+- **AuthScreen** : `FALLBACK_PANELS` fabriqués (« Series A ↑ 22 % ») + headline
+  de repli → placeholders neutres (« Analyse en cours… »).
+- **Marque** : export `USER` supprimé (brand.ts) ; fallback « Plan Max »
+  (Sidebar) → « Compte connecté ».
+- **SourcesView** : sélecteur de fréquence (cosmétique) retiré ; toast à DEUX
+  chiffres « X trouvés, Y ajoutés au fil » (`count`/`ok`) ; « N art. » → « — »
+  si feed non chargé (+ santé neutre) ; 9 prefs `removed=true` de test purgées.
+- **Compteur « surveillées »** unifié (page.tsx = même déf. que SourcesView :
+  (globales∪perso) − removed valides).
+- **Landing `app/page.tsx`** (minimal, décision Kylian) : rendue `async` ;
+  branché SEULEMENT les 2 blocs KPI (l.605+749) sur `articleCount` + sources
+  actives réels (422 / 8). Reste (%, témoignages fabriqués, autres chiffres) → J1.
+- **BUG révélé & corrigé — cache Next sur supabase-js** : Next met en cache le
+  `fetch` sous-jacent (Data Cache disque, persistant) → `/api/stats` servait un
+  vieux `articleCount` (243 au lieu de 422). `lib/supabase.ts` : client serveur
+  forcé en `cache:"no-store"` → lectures toujours fraîches (affectait aussi
+  feed/search). ⚠️ landing désormais rendue dynamiquement (2 count/visite) — OK
+  au stade actuel ; ISR possible plus tard si trafic.
+- Vérif : tsc ✓ · `/api/stats` frais 422 malgré cache ✓ · landing 422/8 ✓ ·
+  plus de « 187 »/« +47 » dans l'app ✓. Test navigateur (Kylian) recommandé.
+- Reste J0 : **T11** (vitest + CI). Dette J1 : témoignages landing, notif, Next CVE.
+- Prochaine étape : T11.
+
 ## 2026-07-14 — T9 sécurité des routes
 - `lib/apiGuard.ts` (nouveau) : `requireUser` (Bearer → getUser → 401),
   `clientIp` (x-forwarded-for), `rateLimit` (Map mémoire, fenêtre glissante ;

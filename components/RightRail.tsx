@@ -4,21 +4,35 @@ import { useEffect, useState } from "react";
 import type { FluxView } from "@/lib/types";
 import type { StatsResp } from "@/lib/stats";
 
-// Heure du prochain brief (06:00) : aujourd'hui si pas encore passé, sinon demain.
-function nextBrief(now: Date): { when: "aujourd'hui" | "demain"; hhmm: string; countdown: string } {
-  const target = new Date(now);
-  target.setHours(6, 0, 0, 0);
-  let when: "aujourd'hui" | "demain" = "aujourd'hui";
-  if (now >= target) {
-    target.setDate(target.getDate() + 1);
-    when = "demain";
+// Prochaine COLLECTE réelle : le cron GitHub Actions tourne à 00/06/12/18 UTC
+// (.github/workflows/ingest.yml). On calcule le prochain créneau et on l'affiche
+// en heure locale. Plus de "brief 06:00" fictif (aucun job brief planifié).
+function nextCollect(now: Date): { when: "aujourd'hui" | "demain"; hhmm: string; countdown: string } {
+  const slots = [0, 6, 12, 18]; // heures UTC du cron
+  let target: Date | null = null;
+  for (const h of slots) {
+    const t = new Date(now);
+    t.setUTCHours(h, 0, 0, 0);
+    if (t.getTime() > now.getTime()) {
+      target = t;
+      break;
+    }
+  }
+  if (!target) {
+    target = new Date(now);
+    target.setUTCDate(target.getUTCDate() + 1);
+    target.setUTCHours(0, 0, 0, 0);
   }
   const diffMin = Math.max(0, Math.round((target.getTime() - now.getTime()) / 60000));
   const h = Math.floor(diffMin / 60);
   const m = diffMin % 60;
+  const when: "aujourd'hui" | "demain" =
+    target.getDate() === now.getDate() && target.getMonth() === now.getMonth()
+      ? "aujourd'hui"
+      : "demain";
   return {
     when,
-    hhmm: "06:00",
+    hhmm: target.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
     countdown: h > 0 ? `${h} h ${String(m).padStart(2, "0")}` : `${m} min`,
   };
 }
@@ -57,7 +71,7 @@ export function RightRail({
   const isTrends = flux === "tendances";
 
   const hasHist = !!stats?.hasHistory;
-  const overall = hasHist ? stats!.overallVariation : 47;
+  const overall = hasHist ? stats!.overallVariation : 0;
   const spark = hasHist ? sparkPaths(stats!.series.map((s) => s.count)) : null;
 
   // Top hausses réelles (pour les signaux faibles du mode "En direct").
@@ -65,10 +79,10 @@ export function RightRail({
     ? stats!.topics.filter((t) => t.variation > 0).sort((a, b) => b.variation - a.variation)
     : [];
 
-  // Horaire du prochain brief (mis à jour chaque minute).
-  const [brief, setBrief] = useState(() => nextBrief(new Date()));
+  // Prochaine collecte réelle (mise à jour chaque minute).
+  const [brief, setBrief] = useState(() => nextCollect(new Date()));
   useEffect(() => {
-    const id = setInterval(() => setBrief(nextBrief(new Date())), 60000);
+    const id = setInterval(() => setBrief(nextCollect(new Date())), 60000);
     return () => clearInterval(id);
   }, []);
 
@@ -119,41 +133,40 @@ export function RightRail({
         <>
           <section>
             <RailLabel dot="#FF5A47">Aperçu · 7 jours</RailLabel>
-            <div className="rounded-[16px] bg-[#1A0A08] p-[22px] text-[#FFF7EA]">
-              <div className="text-[46px] font-bold leading-none tracking-[-0.035em] text-primary">
-                {overall >= 0 ? "+ " : "− "}
-                {Math.abs(overall)} %
+            {hasHist ? (
+              <div className="rounded-[16px] bg-[#1A0A08] p-[22px] text-[#FFF7EA]">
+                <div className="text-[46px] font-bold leading-none tracking-[-0.035em] text-primary">
+                  {overall >= 0 ? "+ " : "− "}
+                  {Math.abs(overall)} %
+                </div>
+                <div className="mt-2 text-[12px] leading-[1.45] text-[#FFF7EA]/60">
+                  {`de volume vs la semaine précédente${
+                    stats!.topics[0]?.variation > 0 ? ` — porté surtout par ${stats!.topics[0].label}.` : "."
+                  }`}
+                </div>
+                <div className="mt-4 h-[60px]">
+                  <svg viewBox="0 0 200 60" preserveAspectRatio="none" className="h-full w-full">
+                    <path d={spark?.line ?? ""} fill="none" stroke="#FF5A47" strokeWidth="2" />
+                    <path d={spark?.area ?? ""} fill="rgba(255,90,71,.15)" />
+                  </svg>
+                </div>
+                <div className="mt-1.5 flex justify-between font-mono text-[8.5px] tracking-[0.06em] text-[#FFF7EA]/40">
+                  {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
+                    <span key={i}>{d}</span>
+                  ))}
+                </div>
               </div>
-              <div className="mt-2 text-[12px] leading-[1.45] text-[#FFF7EA]/60">
-                {hasHist
-                  ? `de volume vs la semaine précédente${
-                      stats!.topics[0]?.variation > 0 ? ` — porté surtout par ${stats!.topics[0].label}.` : "."
-                    }`
-                  : "de volume vs la semaine dernière — poussée surtout par les agents autonomes et l'edge."}
+            ) : (
+              // Pas encore ≥ 2 jours d'historique → aucune variation inventée (T10).
+              <div className="rounded-[16px] bg-[#1A0A08] p-[22px] text-[#FFF7EA]">
+                <div className="text-[15px] font-semibold leading-[1.35]">
+                  Historique en cours de constitution
+                </div>
+                <div className="mt-2 text-[12px] leading-[1.5] text-[#FFF7EA]/60">
+                  Les variations de volume apparaissent après quelques jours de collecte.
+                </div>
               </div>
-              <div className="mt-4 h-[60px]">
-                <svg viewBox="0 0 200 60" preserveAspectRatio="none" className="h-full w-full">
-                  <path
-                    d={spark?.line ?? "M0 45 Q 25 40 40 38 T 80 30 T 120 24 T 160 14 T 200 6"}
-                    fill="none"
-                    stroke="#FF5A47"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d={
-                      spark?.area ??
-                      "M0 45 Q 25 40 40 38 T 80 30 T 120 24 T 160 14 T 200 6 L 200 60 L 0 60 Z"
-                    }
-                    fill="rgba(255,90,71,.15)"
-                  />
-                </svg>
-              </div>
-              <div className="mt-1.5 flex justify-between font-mono text-[8.5px] tracking-[0.06em] text-[#FFF7EA]/40">
-                {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
-                  <span key={i}>{d}</span>
-                ))}
-              </div>
-            </div>
+            )}
           </section>
 
           <section>
@@ -201,7 +214,7 @@ export function RightRail({
           </section>
 
           <section>
-            <RailLabel right={hasHist && risers.length ? String(risers.length).padStart(2, "0") : "03"}>
+            <RailLabel right={hasHist && risers.length ? String(risers.length).padStart(2, "0") : undefined}>
               Signaux faibles
             </RailLabel>
             {hasHist && risers.length ? (
@@ -254,13 +267,13 @@ export function RightRail({
           <section className="mt-auto">
             <div className="rounded-[14px] bg-foreground p-[16px_18px] text-background">
               <div className="mb-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-primary">
-                Ton rituel
+                Prochaine collecte
               </div>
               <div className="mb-1.5 text-[14px] font-semibold leading-[1.3]">
-                Prochain brief {brief.when} {brief.hhmm}
+                Prochaine collecte {brief.when} {brief.hhmm}
               </div>
               <div className="text-[11px] leading-[1.5] text-background/55">
-                Dans {brief.countdown} · notifié 5 min avant.
+                Dans {brief.countdown}.
               </div>
             </div>
           </section>
@@ -331,7 +344,7 @@ function RadarDisc({ countdown }: { countdown: string }) {
       <div className="absolute bottom-3 left-3.5 text-[#FFF7EA]">
         <div className="font-sans text-[20px] font-bold leading-none tracking-[-0.02em]">{countdown}</div>
         <div className="mt-1 font-mono text-[8.5px] uppercase tracking-[0.1em] text-[#FFF7EA]/55">
-          Prochain digest
+          Prochaine collecte
         </div>
       </div>
       <div className="absolute right-3.5 top-3 font-mono text-[8.5px] uppercase tracking-[0.1em] text-[#FFF7EA]/55">
