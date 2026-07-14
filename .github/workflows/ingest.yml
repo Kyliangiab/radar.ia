@@ -1,0 +1,46 @@
+# Ingestion Radar — worker cron (ADR-0001).
+# Toutes les 6 h + déclenchement manuel. Environnement Node complet → l'embedding
+# ONNX local (e5-base) tourne sans souci (impossible en serverless Vercel).
+# Effet de bord voulu : maintient le projet Supabase free éveillé (~7 j d'inactivité
+# = pause). Secrets requis (Settings → Secrets and variables → Actions) :
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GROQ_API_KEY,
+#   HUGGINGFACE_API_KEY, GROQ_MODEL_ENRICH, GROQ_MODEL_SMART.
+name: Ingestion Radar
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # 00:00 / 06:00 / 12:00 / 18:00 UTC
+  workflow_dispatch: {} # déclenchement manuel depuis l'onglet Actions
+
+# Jamais deux ingestions en parallèle (collisions d'upsert, double pression 429).
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Ingestion
+        run: npm run ingest
+        env:
+          # Requis par le pipeline (getSupabase + Groq). Modèles : vides → défauts code.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL_ENRICH: ${{ secrets.GROQ_MODEL_ENRICH }}
+          GROQ_MODEL_SMART: ${{ secrets.GROQ_MODEL_SMART }}
+          # Non utilisé par l'ingest (embedding local), mais gardé pour cohérence
+          # avec la liste de secrets et un éventuel usage futur.
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}

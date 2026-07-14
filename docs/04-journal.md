@@ -112,3 +112,18 @@
   T8 (/api/sources : onConflict:"id" + summary=null → enrich immédiat),
   T9 (sécurité routes + zod), T10 (UI honnête), T11 (vitest/CI).
 - Prochaine étape : T6 (ou selon priorité Kylian).
+
+## 2026-07-14 — T6 cron GitHub Actions
+- `.github/workflows/ingest.yml` créé (il n'existait pas malgré le message de
+  commit initial). Cron toutes les 6 h (`0 */6 * * *`) + `workflow_dispatch`.
+  `concurrency: ingest` (pas de run //), Node 20, `npm ci`, `npm run ingest`,
+  timeout 20 min. 6 secrets en env (SUPABASE_URL, SERVICE_ROLE_KEY, GROQ_API_KEY,
+  GROQ_MODEL_ENRICH/SMART, HUGGINGFACE_API_KEY). YAML validé (ruby).
+- NB : l'ingest utilise l'embedding LOCAL (ONNX e5-base) → pas besoin de la clé
+  HF pour le cron ; incluse par cohérence. dotenv sur `.env.local` absent en CI
+  = no-op, les vars viennent du bloc `env:` (lecture lazy de process.env).
+- Validation live = pousser + lancer un `workflow_dispatch` manuel (Actions) →
+  run vert. Non exécutable depuis l'agent. À surveiller au 1er run : sync
+  package-lock (npm ci) + durée (téléchargement modèle ONNX la 1re fois).
+- Prochaine étape : T7 (finir : check de démarrage bloquant — l'instrumentation
+  429/http_err/parse_err est déjà faite).
