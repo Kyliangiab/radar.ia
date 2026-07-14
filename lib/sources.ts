@@ -3,6 +3,7 @@ import type { Article, CategoryId } from "./types";
 import { CATEGORY_MAP } from "./categories";
 import type { FeedSource } from "./feeds";
 import { getSupabase } from "./supabase";
+import { canonicalUrl } from "./url";
 
 const DEVTO_ENDPOINT = "https://dev.to/api/articles";
 
@@ -76,12 +77,13 @@ function applyHeat(articles: Article[]): Article[] {
 export async function getFeed(category: CategoryId): Promise<Article[]> {
   const merged = await fetchDevto(category);
 
-  // dédoublonnage par URL normalisée
+  // dédoublonnage par URL canonique (règle #5) ; l'article porte la forme canonique.
   const seen = new Set<string>();
   const unique = merged.filter((a) => {
-    const key = a.url.replace(/\/$/, "").toLowerCase();
+    const key = canonicalUrl(a.url);
     if (seen.has(key)) return false;
     seen.add(key);
+    a.url = key;
     return true;
   });
 
@@ -373,6 +375,26 @@ type SourceRow = {
 // ensuite). "all" = front_page / top.
 const COLLECT_CATS: CategoryId[] = ["all", "tech", "biz", "data", "ux"];
 
+// Plafond d'articles retenus par source et par run (régime de tokens, ADR-0002).
+// Dev.to = 5 tâches COLLECT_CATS partageant source="Dev.to" → sinon ~97 articles.
+const MAX_ARTICLES_PER_SOURCE = Number(process.env.MAX_ARTICLES_PER_SOURCE) || 15;
+
+// Garde au plus MAX_ARTICLES_PER_SOURCE articles par `source`, les plus « chauds »
+// d'abord. L'ordre de sortie global n'est pas significatif (tri fait au read).
+function capPerSource(articles: Article[]): Article[] {
+  const bySource: Record<string, Article[]> = {};
+  for (const a of articles) {
+    (bySource[a.source] ??= []).push(a);
+  }
+  const out: Article[] = [];
+  for (const source of Object.keys(bySource)) {
+    const group = bySource[source];
+    group.sort((x: Article, y: Article) => y.heat - x.heat);
+    out.push(...group.slice(0, MAX_ARTICLES_PER_SOURCE));
+  }
+  return out;
+}
+
 async function getActiveSources(): Promise<SourceRow[]> {
   const sb = getSupabase();
   if (!sb) return [];
@@ -430,14 +452,16 @@ export async function collectAll(): Promise<Article[]> {
 
   const all = (await Promise.all(tasks)).flat();
 
-  // dédoublonnage par URL normalisée
+  // dédoublonnage par URL canonique (règle #5) ; l'article porte la forme canonique
+  // → détection `fresh` et upsert `onConflict:"url"` cohérents en aval (T4).
   const seen = new Set<string>();
   const unique = all.filter((a) => {
-    const key = a.url.replace(/\/$/, "").toLowerCase();
+    const key = canonicalUrl(a.url);
     if (seen.has(key)) return false;
     seen.add(key);
+    a.url = key;
     return true;
   });
 
-  return applyGlobalHeat(unique);
+  return capPerSource(applyGlobalHeat(unique));
 }

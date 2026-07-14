@@ -20,12 +20,13 @@ Constats mesurés (run du 2026-07-14) qui motivent J0 :
 
 ### Tâches J0 (dans cet ordre)
 
-**T1 — Modèles Groq en env** *(≈ 30 min)*
+**T1 — Modèles Groq en env** *(≈ 30 min)* ⚠️ les 2 modèles actuels sont DÉPRÉCIÉS (Groq, 17/06/2026)
 `lib/ai.ts` : `GROQ_MODEL_ENRICH` et `GROQ_MODEL_SMART` lus depuis l'env.
-ENRICH → un modèle 8B classe "instant" (vérifier la liste sur
-console.groq.com au moment de l'implémentation). SMART → llama-3.3-70b.
+ENRICH → `openai/gpt-oss-20b` · SMART → `openai/gpt-oss-120b`
+(vérifier sur console.groq.com/docs/models qu'ils sont en Production).
 `briefing`/`ask` utilisent SMART ; `enrich`/`translate` utilisent ENRICH.
-Ajouter les 2 variables à `.env`, `.env.local`, `.env.example`.
+Ajouter les 2 variables à `.env`, `.env.local`, `.env.example`
+avec ces valeurs par défaut.
 
 **T2 — Régime de tokens** *(≈ 1 h)*
 - Supprimer la génération VO (`summary_orig`, `key_points_orig`,

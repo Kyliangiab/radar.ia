@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { groqJSON, hasGroq, GROQ_MODEL_SMART } from "@/lib/ai";
+import { groqJSON, hasGroq, groqModelSmart } from "@/lib/ai";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const parsed = await groqJSON<{ answer: string }>({
       system: SYSTEM,
       user: `Article :\n${context}\n\nQuestion : ${question}\n\nRéponds en JSON.`,
-      model: GROQ_MODEL_SMART,
+      model: groqModelSmart(),
       maxTokens: 512,
       temperature: 0.4,
     });

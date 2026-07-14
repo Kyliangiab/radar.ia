@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { groqJSON, hasGroq, GROQ_MODEL_SMART } from "@/lib/ai";
+import { groqJSON, hasGroq, groqModelSmart } from "@/lib/ai";
 import type { Article, Briefing } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const parsed = await groqJSON<Briefing>({
       system: SYSTEM,
       user: `Titres phares du jour :\n\n${digest}\n\nGénère le briefing JSON.`,
-      model: GROQ_MODEL_SMART,
+      model: groqModelSmart(),
       maxTokens: 1024,
       temperature: 0.5,
     });

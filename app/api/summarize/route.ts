@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { groqJSON, hasGroq, GROQ_MODEL_SMART } from "@/lib/ai";
+import { groqJSON, hasGroq, groqModelSmart } from "@/lib/ai";
 import type { Summary } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     const parsed = await groqJSON<Summary>({
       system: lang === "en" ? SYSTEM_EN : SYSTEM_FR,
       user: `Source: ${source}\nTitle: ${title}\nDescription: ${snippet || "(none)"}\n\nReturn the JSON summary.`,
-      model: GROQ_MODEL_SMART,
+      model: groqModelSmart(),
       maxTokens: 768,
     });
     if (!parsed || !parsed.summary) {

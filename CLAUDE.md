@@ -31,8 +31,9 @@ inventaire UI : @docs/fonction.md (⚠️ ✅ = "le code existe", pas "ça march
 2. **Jamais de ligne vide en base** : un enrichissement raté = `pending` +
    `enrich_attempts++`, pas un insert avec `summary=null`.
 3. **Modèles Groq** : lus depuis `GROQ_MODEL_ENRICH` / `GROQ_MODEL_SMART`
-   (env), jamais codés en dur. ENRICH = modèle 8B "instant", SMART = 70B
-   (ADR-0002).
+   (env), jamais codés en dur. ENRICH = `openai/gpt-oss-20b`,
+   SMART = `openai/gpt-oss-120b`. Les Llama 3.x sont dépréciés par Groq —
+   ne jamais y revenir (ADR-0002).
 4. **Clé LLM centralisée** : jamais de BYOK utilisateur (ADR-0002).
 5. **Dédoublonnage par `url_canonical`** (strip utm_*, fbclid, ref, fragment,
    trailing slash, host en minuscules). L'upsert se fait `onConflict: url`,

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { groqJSON, hasGroq, GROQ_MODEL_ENRICH } from "@/lib/ai";
+import { groqJSON, hasGroq, groqModelEnrich } from "@/lib/ai";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
         `Si un texte est déjà en ${target}, renvoie-le tel quel. ` +
         'Réponds UNIQUEMENT en JSON : { "texts": [...] } — même nombre d\'éléments, même ordre.',
       user: `Traduis en ${target} :\n${JSON.stringify(texts)}\n\nRéponds en JSON.`,
-      model: GROQ_MODEL_ENRICH,
+      model: groqModelEnrich(),
       maxTokens: 900,
       temperature: 0.2,
     });

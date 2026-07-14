@@ -53,7 +53,13 @@ export async function GET(request: Request) {
   if (supabase) {
     try {
       const base = () => {
-        let qq = supabase.from("articles").select("*").order("published_at", { ascending: false });
+        // Gate ADR-0005 : seuls les articles enrichis (enrich_status='ok') sont
+        // servis. Aucune exception — jamais de carte vide au feed.
+        let qq = supabase
+          .from("articles")
+          .select("*")
+          .eq("enrich_status", "ok")
+          .order("published_at", { ascending: false });
         if (category !== "all") qq = qq.eq("category", category);
         return qq;
       };
