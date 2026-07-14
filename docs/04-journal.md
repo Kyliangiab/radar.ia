@@ -3,12 +3,36 @@
 > Mis à jour par Claude Code en fin de chaque session.
 > Format : date · fait / en cours / bloqué / prochaine étape.
 
+## 2026-07-15 — T6 validé (run cron vert)
+- Run GitHub Actions #2 (workflow_dispatch, Node 22) = **Success** en 6m23s.
+  Ingest : 80 collectés, 2 nouveaux, `ok=2 · pending=0 · failed=0 · 429=0`.
+  Preuve de bout en bout : cron OK, secrets injectés (check T7 passé), récap
+  instrumenté. **T6 = terminé.**
+- Avertissements du run (non bloquants) : (a) `next@14.2.15` CVE critique
+  (déjà dette J1, remontée par `npm ci`) ; (b) actions checkout/setup-node@v4
+  tournent sur Node 24 forcé (déprécation Node 20 côté actions) — cosmétique.
+- **J0 : reste uniquement T11 (vitest + CI).**
+
 ## Dette / à traiter
-- **[CRITIQUE — J1, bloquant vente école/fac] Next.js 14.2.15 = vulnérabilité
-  critique.** Signalée par `npm ci` en CI. Réf :
-  https://nextjs.org/blog/security-update-2025-12-11 . Bump Next à une version
-  patchée à traiter EN PRIORITÉ en J1 (une école/fac ne signera pas avec une
-  CVE critique ouverte). Détecté le 2026-07-14.
+- ~~[CRITIQUE] Next.js 14.2.15 = vulnérabilité critique~~ → **CVE CRITIQUE
+  RÉGLÉE le 2026-07-15** : bump `next@14.2.35` (drop-in, 0 breaking change).
+  Le critique « Authorization Bypass in Middleware » (GHSA-f82v-jwr5-mffw)
+  était patché dès 14.2.25. Reste 1 HIGH + 1 MODERATE (avis DoS Server
+  Components / SSRF WebSocket / cache poisoning + postcss) patchés seulement
+  en **15.5.16+** → nécessitent la migration Next 15 ci-dessous.
+- **[HIGH — J1 ou fin J0] Migration Next 15 (audit 100 % propre).** Plan :
+  cible `next@15.5.20`. Points à vérifier (breaking changes 14→15) :
+  1. **React 19** : Next 15 le recommande. Vérifier compat (app en 18.3.1) —
+     rester en React 18 si Next 15 l'autorise, sinon bump React 19 + tester.
+  2. **Async request APIs** : `cookies()/headers()/draftMode()/params/
+     searchParams` deviennent async. `grep` d'usage (les routes utilisent
+     `request.headers.get()` = Web API, non impacté ; à confirmer).
+  3. **Defaults de cache** : `fetch` et route handlers `GET` non cachés par
+     défaut (aligné avec notre `no-store`/`force-dynamic` — vérifier).
+  4. **ESLint 9 / next lint**, `next/font`, config.
+  5. Vérif : `tsc` + `next build` + run local + les 3 flux clés (feed, search,
+     ajout de source) + ISR landing.
+  → ADR à créer quand exécuté (décision structurante).
 - ~~[T8] `app/api/sources/route.ts` : `onConflict:"id"` + insert `summary=null`~~
   → **SOLDÉ** (T8 fait le 2026-07-14) : `onConflict:"url"` + enrich/embed immédiat.
 
