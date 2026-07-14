@@ -142,6 +142,16 @@ ingestion email · changelog "nouveautés" dans le menu · backups
 
 ## Backlog / idées produit (pas J0)
 
+- **[EN TÊTE — dette structurelle] `source_id` FK sur `articles` (schema-v2).**
+  Le masquage des sources archivées (`/api/feed`, backlog#8, fait le 2026-07-15)
+  croise prefs↔articles **par NOM texte** faute de `source_id` sur `articles` :
+  fragile (collision de noms, renommage d'une source = orphelins). schema-v2
+  (ADR-0003/0004) introduit un registre de sources unifié + `source_id` FK sur
+  `articles` qui **remplace ce matching-par-nom** proprement. Chantier de
+  MIGRATION structurant, **supervisé, à faire à froid** (pas ce soir). Une fois
+  posé : réécrire le filtre du feed sur `source_id` et retirer la résolution
+  id→nom + `pgInList`.
+
 - **Filtre du feed par source (globale ou perso).** Le feed ne filtre
   aujourd'hui que par catégorie. Pouvoir isoler ce que rapporte une source
   précise — en particulier les flux RSS personnels. Cohérent avec la cible

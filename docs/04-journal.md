@@ -13,6 +13,22 @@
   tournent sur Node 24 forcé (déprécation Node 20 côté actions) — cosmétique.
 - **J0 : reste uniquement T11 (vitest + CI).**
 
+## 2026-07-15 — Feed masque les sources archivées (backlog#8)
+- **Bug de cohérence corrigé** : archiver une source (`user_source_prefs.
+  removed=true`) la retirait de SourcesView mais ses articles restaient au feed.
+  `/api/feed` ne lisait jamais les prefs.
+- **Fix côté requête (per-user, corpus intact)** dans `app/api/feed/route.ts` :
+  si session Bearer, on lit les `removed=true` de l'user, on résout `source_id`
+  → NOM (globales via `sources`, perso via `user_sources` — `articles` n'a pas
+  de `source_id`, le seul lien est le nom texte), puis `.not("source","in", …)`
+  PostgREST (noms globaux sur la requête globale, perso sur la perso). Helper
+  `pgInList` (guillemets doubles, `"`→`""`). Aucune ligne `articles` touchée.
+- **Portée** : `removed` seul (`paused` reste visible). Pas de migration.
+- **Réserve** : matching-par-nom = fragile, remplacé proprement par le
+  `source_id` FK de schema-v2 (J1). Patch J0 assumé, réversible.
+- **Test** : `gate.test.ts` étendu (mock table-aware + thenable) → 20/20 verts,
+  typecheck ✓.
+
 ## 2026-07-15 — T11 vitest + CI (J0 terminé)
 - **vitest** ajouté (+ config, alias `@`). Scripts : `typecheck`, `test`,
   `test:watch`. `lib/enrich.ts` refactor : extraction de 2 fonctions PURES

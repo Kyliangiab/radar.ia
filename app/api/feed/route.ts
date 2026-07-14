@@ -8,6 +8,14 @@ export const dynamic = "force-dynamic";
 
 const VALID: CategoryId[] = ["all", "tech", "biz", "data", "ux"];
 
+// Construit une liste PostgREST `("a","b")` pour `.not("source","in", …)` :
+// chaque nom entre guillemets doubles, tout `"` interne doublé (convention
+// PostgREST). Renvoie null si la liste est vide (→ ne pas appliquer le filtre).
+function pgInList(names: string[]): string | null {
+  if (names.length === 0) return null;
+  return "(" + names.map((n) => `"${n.replace(/"/g, '""')}"`).join(",") + ")";
+}
+
 // Ligne DB → forme Article de l'app
 function mapRow(r: any): Article {
   return {
@@ -59,6 +67,33 @@ export async function GET(request: Request) {
   // remontait pas les persos en prod (parsing PostgREST capricieux sur l'UUID).
   if (supabase) {
     try {
+      // Sources archivées par CET utilisateur (removed=true) → on masque leurs
+      // articles de SON feed, sans toucher le corpus (masquage per-user, RLS).
+      // `articles` n'a pas de source_id : on résout id→NOM (le seul lien est le
+      // champ texte `source`). Globales via `sources`, perso via `user_sources`.
+      let removedGlobalNames: string[] = [];
+      let removedUserNames: string[] = [];
+      if (validUid) {
+        const { data: prefs } = await supabase
+          .from("user_source_prefs")
+          .select("source_id")
+          .eq("user_id", validUid)
+          .eq("removed", true);
+        const removedIds = (prefs ?? []).map((p: { source_id: string }) => p.source_id);
+        if (removedIds.length > 0) {
+          const [g, u] = await Promise.all([
+            supabase.from("sources").select("name").in("id", removedIds),
+            supabase
+              .from("user_sources")
+              .select("name")
+              .in("id", removedIds)
+              .eq("user_id", validUid),
+          ]);
+          removedGlobalNames = (g.data ?? []).map((r: { name: string }) => r.name);
+          removedUserNames = (u.data ?? []).map((r: { name: string }) => r.name);
+        }
+      }
+
       const base = () => {
         // Gate ADR-0005 : seuls les articles enrichis (enrich_status='ok') sont
         // servis. Aucune exception — jamais de carte vide au feed.
@@ -70,10 +105,18 @@ export async function GET(request: Request) {
         if (category !== "all") qq = qq.eq("category", category);
         return qq;
       };
-      const globalRes = await base().is("user_id", null).limit(300);
+      // Filtre PostgREST (pas de post-filtrage JS, cf. gate T3). Noms globaux sur
+      // la requête globale, noms perso sur la requête perso → pas de collision.
+      const globalExcl = pgInList(removedGlobalNames);
+      let globalQ = base().is("user_id", null);
+      if (globalExcl) globalQ = globalQ.not("source", "in", globalExcl);
+      const globalRes = await globalQ.limit(300);
       let rows = globalRes.data ?? [];
       if (validUid) {
-        const userRes = await base().eq("user_id", validUid).limit(100);
+        const userExcl = pgInList(removedUserNames);
+        let userQ = base().eq("user_id", validUid);
+        if (userExcl) userQ = userQ.not("source", "in", userExcl);
+        const userRes = await userQ.limit(100);
         if (userRes.data?.length) rows = [...userRes.data, ...rows];
       }
       if (!globalRes.error && rows.length > 0) {
