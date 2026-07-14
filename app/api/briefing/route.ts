@@ -1,9 +1,31 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { groqJSON, hasGroq, groqModelSmart } from "@/lib/ai";
-import type { Article, Briefing } from "@/lib/types";
+import { getSupabase } from "@/lib/supabase";
+import { requireUser, rateLimit } from "@/lib/apiGuard";
+import type { Briefing } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// Tolérant sur la forme des articles (le front en envoie beaucoup de champs) :
+// on ne valide que ce qu'on consomme, le reste passe.
+const BriefingSchema = z.object({
+  articles: z
+    .array(
+      z
+        .object({
+          title: z.string(),
+          source: z.string().optional(),
+          category: z.string().optional(),
+          points: z.number().optional(),
+          comments: z.number().optional(),
+        })
+        .passthrough(),
+    )
+    .min(1)
+    .max(200),
+});
 
 const SYSTEM = `Tu es l'éditeur d'une plateforme de veille technologique (tech, UI/design, IA, dev).
 On te donne les titres phares du jour. Produis un briefing bref, lucide et concret, en français.
@@ -23,22 +45,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "no_key" }, { status: 200 });
   }
 
-  let articles: Article[] = [];
+  // Route Groq → session requise + rate limit par user (ADR-0002, T9).
+  const supabase = getSupabase();
+  if (!supabase) return NextResponse.json({ error: "no_db" }, { status: 200 });
+  const auth = await requireUser(request, supabase);
+  if (auth instanceof NextResponse) return auth;
+  if (!rateLimit(`briefing:${auth.user.id}`, 20, 60_000)) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+
+  let articles: z.infer<typeof BriefingSchema>["articles"] = [];
   try {
-    const body = await request.json();
-    articles = Array.isArray(body.articles) ? body.articles : [];
+    articles = BriefingSchema.parse(await request.json()).articles;
   } catch {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
-  }
-  if (articles.length === 0) {
-    return NextResponse.json({ error: "empty" }, { status: 200 });
   }
 
   const digest = articles
     .slice(0, 22)
     .map(
       (a, i) =>
-        `${i + 1}. [${a.source} · ${a.category}] ${a.title} (${a.points} pts, ${a.comments} comm.)`,
+        `${i + 1}. [${a.source ?? "?"} · ${a.category ?? "?"}] ${a.title} (${a.points ?? 0} pts, ${a.comments ?? 0} comm.)`,
     )
     .join("\n");
 

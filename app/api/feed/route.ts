@@ -39,12 +39,19 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const raw = (searchParams.get("category") ?? "all") as CategoryId;
   const category = VALID.includes(raw) ? raw : "all";
-  // uid (session) → on ajoute les articles des sources perso du user au corpus
-  // global. ponytail: contenu RSS public, filtre best-effort (pas de secret ici).
-  const uid = searchParams.get("uid");
-  const validUid = uid && /^[0-9a-f-]{36}$/i.test(uid) ? uid : null;
 
   const supabase = getSupabase();
+
+  // uid dérivé de la SESSION serveur (T9) : le `?uid=` est ignoré (sinon
+  // n'importe qui lit le feed perso d'un autre). Sans Bearer → global seul.
+  let validUid: string | null = null;
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (supabase && token) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser(token);
+    validUid = user?.id ?? null;
+  }
 
   // Source de vérité : la base (restitution du pipeline).
   // NB : on fait DEUX requêtes (corpus global user_id null + articles perso du

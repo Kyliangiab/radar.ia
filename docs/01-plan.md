@@ -137,3 +137,14 @@ classe) · Stripe.
 `ingest_runs` complet (tokens, coûts, alerting) · quotas par plan ·
 ingestion email · changelog "nouveautés" dans le menu · backups
 (passage Supabase payant dès les premiers vrais utilisateurs).
+
+---
+
+## Backlog / idées produit (pas J0)
+
+- **Filtre du feed par source (globale ou perso).** Le feed ne filtre
+  aujourd'hui que par catégorie. Pouvoir isoler ce que rapporte une source
+  précise — en particulier les flux RSS personnels. Cohérent avec la cible
+  écoles (un prof veut voir ce qu'une source donnée a publié). Cible : J1
+  (le registre de sources unifié rend le filtre naturel). NE PAS implémenter
+  en J0 (réparation, pas nouvelles features).

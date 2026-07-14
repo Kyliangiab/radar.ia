@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { groqJSON, hasGroq, groqModelSmart } from "@/lib/ai";
+import { getSupabase } from "@/lib/supabase";
+import { requireUser, rateLimit } from "@/lib/apiGuard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,19 +14,33 @@ Ne fabrique pas de chiffres : si l'info n'est pas dans le contexte, dis-le et
 renvoie l'utilisateur vers la source. Pas d'emoji, pas de superlatifs creux.
 Réponds UNIQUEMENT en JSON valide : { "answer": "…" }`;
 
-type AskBody = { title?: string; source?: string; snippet?: string; summary?: string; question?: string };
+const AskSchema = z.object({
+  title: z.string().max(500).optional(),
+  source: z.string().max(200).optional(),
+  snippet: z.string().max(4000).optional(),
+  summary: z.string().max(4000).optional(),
+  question: z.string().trim().min(1).max(1000),
+});
 
 export async function POST(request: Request) {
   if (!hasGroq()) return NextResponse.json({ error: "no_key" }, { status: 200 });
 
-  let b: AskBody = {};
+  // Route Groq → session requise + rate limit par user (ADR-0002, T9).
+  const supabase = getSupabase();
+  if (!supabase) return NextResponse.json({ error: "no_db" }, { status: 200 });
+  const auth = await requireUser(request, supabase);
+  if (auth instanceof NextResponse) return auth;
+  if (!rateLimit(`ask:${auth.user.id}`, 20, 60_000)) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+
+  let b: z.infer<typeof AskSchema>;
   try {
-    b = await request.json();
+    b = AskSchema.parse(await request.json());
   } catch {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
-  const question = String(b.question ?? "").trim();
-  if (!question) return NextResponse.json({ error: "empty" }, { status: 200 });
+  const question = b.question.trim();
 
   const context = [
     `Titre : ${b.title ?? ""}`,

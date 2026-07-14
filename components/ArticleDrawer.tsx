@@ -8,6 +8,7 @@ import { timeAgo, hostOf } from "@/lib/format";
 import { toast } from "@/lib/toast";
 import { copyText } from "@/lib/share";
 import { cn } from "@/lib/utils";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { RelevancePill } from "./RelevancePill";
 
 type Mode = "court" | "resume";
@@ -143,9 +144,15 @@ export function ArticleDrawer({
     setAskLoading(true);
     setAskAnswer("");
     try {
+      // /api/ask exige une session (T9) : on joint le Bearer.
+      const token = (await getSupabaseBrowser()?.auth.getSession())?.data.session?.access_token;
+      if (!token) {
+        setAskAnswer("Session expirée — reconnecte-toi pour poser une question.");
+        return;
+      }
       const res = await fetch("/api/ask", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           title: a.title,
           source: a.source,

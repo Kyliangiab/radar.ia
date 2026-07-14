@@ -80,10 +80,15 @@ export default function Home() {
   }, [session]);
 
   // ── Chargement du flux ──
-  const load = useCallback(async (uid: string) => {
+  // L'uid du feed perso vient désormais de la SESSION serveur (T9) : on envoie
+  // le Bearer, plus de `?uid=` en clair (qui laissait lire le feed d'autrui).
+  const load = useCallback(async (token: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/feed?category=all&uid=${uid}`, { cache: "no-store" });
+      const res = await fetch("/api/feed?category=all", {
+        cache: "no-store",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
       setArticles(Array.isArray(data.articles) ? data.articles : []);
     } catch {
@@ -93,7 +98,7 @@ export default function Home() {
     }
   }, []);
   useEffect(() => {
-    if (session) load(session.user.id);
+    if (session) load(session.access_token);
   }, [session, load]);
 
   // ── Auth Supabase (Google OAuth, session réelle) ──
@@ -177,11 +182,14 @@ export default function Home() {
   const generateBriefing = useCallback(
     async (list: Article[]) => {
       if (briefingLoading || list.length === 0) return;
+      // /api/briefing exige une session (T9) : on joint le Bearer.
+      const token = session?.access_token;
+      if (!token) return;
       setBriefingLoading(true);
       try {
         const res = await fetch("/api/briefing", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             articles: list.slice(0, 22).map((a) => ({
               title: a.title,
@@ -199,7 +207,7 @@ export default function Home() {
         setBriefingLoading(false);
       }
     },
-    [briefingLoading],
+    [briefingLoading, session],
   );
 
   useEffect(() => {
@@ -380,7 +388,7 @@ export default function Home() {
       ) : flux === "sources" ? (
         <SourcesView
           articles={articles}
-          onSourceAdded={() => session && load(session.user.id)}
+          onSourceAdded={() => session && load(session.access_token)}
         />
       ) : flux === "tendances" ? (
         <TendancesView articles={articles} briefing={briefing} />

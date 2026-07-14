@@ -176,3 +176,51 @@
 - Reste J0 : T9 (sécurité routes + rate limit + zod ; supprimer /api/summarize),
   T10 (UI honnête), T11 (vitest/CI). + dette : bump Next (CVE critique, J1).
 - Prochaine étape : T9.
+
+## 2026-07-14 — T9 sécurité des routes
+- `lib/apiGuard.ts` (nouveau) : `requireUser` (Bearer → getUser → 401),
+  `clientIp` (x-forwarded-for), `rateLimit` (Map mémoire, fenêtre glissante ;
+  best-effort par instance en serverless — documenté, quota réel = J3).
+- `zod` ajouté (dép. justifiée, plan T9). Schémas de corps ask/briefing/translate.
+- **ask / briefing** : session requise (`requireUser`) + rate limit 20/min/user
+  + zod. **translate** : PUBLIC (landing pré-login) mais durci — zod, caps
+  (≤12 textes, ≤500 car./texte, ≤4000 total), rate limit 30/min/IP. Choix acté
+  avec Kylian (option "public durci").
+- **feed** : uid dérivé de la session serveur (Bearer) ; `?uid=` **ignoré**
+  (fuite du feed perso d'autrui fermée). Sans token → global seul.
+- **/api/summarize supprimée** (orpheline, 0 appelant).
+- Front : Bearer ajouté sur `ArticleDrawer` (ask), `page.tsx` (briefing + feed,
+  `?uid=` retiré). `AuthScreen` (translate) inchangé.
+- Vérif curl (dev) : ask 401 ✓ · briefing 401 ✓ · translate 200 / 400 (12+) /
+  400 (>4000) ✓ · rate limit 30×200 + 5×429 ✓ · feed ?uid=bidon → 200 global ✓.
+  tsc ✓. Happy-path authed (ask/briefing/feed perso) = test navigateur (token
+  de session).
+- Reste J0 : T10 (UI honnête), T11 (vitest/CI). + dette : bump Next CVE (J1).
+- Prochaine étape : T10.
+
+## 2026-07-14 — Fix régression T9 + diagnostic SourcesView (pré-T10)
+- **Régression T9 corrigée** (introduite par moi) : `page.tsx` `load()` attend
+  désormais un token (feed dérive l'uid de la session) ; l'appel `onSourceAdded`
+  passait encore `session.user.id`. Corrigé → `session.access_token` (2 appels).
+- **Diagnostic SourcesView** (bugs prod signalés par Kylian ; aucune modif) :
+  - Compteurs « surveillées / archivées / aucune source » = fidèles à la donnée :
+    9 `user_source_prefs.removed=true` réels (8 globales + 1 perso), créés par
+    les clics « Retirer » de test de Kylian (confirmé). **Aucun écrivain de masse
+    dans le code** (seul `remove()` écrit `removed=true`). Pas un bug.
+  - « N art. · dans le fil » = `countBySource[s.name]` sur le feed CHARGÉ.
+    Simulation : toutes les cartes matchent (Dev.to 138, TechCrunch 52, perso
+    « Le Monde.fr » 10…). Le « 0 art. » n'apparaît que si `articles` est vide au
+    rendu (feed pas encore chargé) → pas un bug de calcul, mais indicateur fragile.
+- **À intégrer au plan T10** (vrais problèmes d'honnêteté) :
+  1. « N art. · dans le fil » : compteur dépendant du feed chargé (0 trompeur) →
+     refléter un vrai count DB par source, ou retirer/relibeller.
+  2. Deux formules divergentes pour « Sources surveillées » (`rows.length` vue
+     SourcesView vs `g+u−removed` sidebar `page.tsx:277`) → unifier.
+  3. Nettoyer les 9 `removed=true` de test (delete) en début de T10.
+  4. **Toast d'ajout de source ment** (repéré en prod sur Numerama : « 15
+     articles collectés / dans ton fil » alors que cap = 10). La route renvoie
+     `count = feed.articles.length` (collectés AVANT cap/dédup/fresh) ; le toast
+     `SourcesView.tsx:125-129` affiche `d.count` + « dans ton fil ». Or seuls
+     `d.ok` sont réellement servis. → toast basé sur `ok` (+ distinguer
+     « collectés » vs « ajoutés »). Code déployé = bien T8 (réponse a ok/fresh/
+     pending) ; c'est un compteur qui ment, pas un déploiement obsolète.
