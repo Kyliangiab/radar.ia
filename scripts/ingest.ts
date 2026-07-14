@@ -79,7 +79,33 @@ function rowToArticle(r: any): Article {
   };
 }
 
+// Check de démarrage (T7) : un secret requis manquant doit échouer À LA
+// SECONDE 0 avec un message net — pas planter obscurément 3 min plus tard.
+// Les optionnelles vides retombent sur les défauts du code (simple warning).
+function checkEnv(): void {
+  // Requises : sans elles, le run n'a aucun sens (DB + enrichissement).
+  const required = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GROQ_API_KEY"];
+  const missing = required.filter((k) => !process.env[k]?.trim());
+  if (missing.length) {
+    console.error(`✗ Variables requises manquantes ou vides : ${missing.join(", ")}.`);
+    console.error(
+      "  En CI : Settings → Secrets and variables → Actions. En local : .env / .env.local.",
+    );
+    process.exit(1);
+  }
+  // Optionnelles à défaut code : on signale qu'on utilise le défaut.
+  const withDefault: Array<[string, string]> = [
+    ["GROQ_MODEL_ENRICH", "openai/gpt-oss-20b"],
+    ["GROQ_MODEL_SMART", "openai/gpt-oss-120b"],
+  ];
+  for (const [k, def] of withDefault) {
+    if (!process.env[k]?.trim()) console.warn(`⚠ ${k} vide → défaut code « ${def} ».`);
+  }
+}
+
 async function main() {
+  checkEnv();
+
   const supabase = getSupabase();
   if (!supabase) {
     console.error("✗ Supabase non configuré (SUPABASE_URL / SERVICE_ROLE_KEY). Rien à ingérer.");

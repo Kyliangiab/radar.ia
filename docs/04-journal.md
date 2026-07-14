@@ -127,3 +127,20 @@
   package-lock (npm ci) + durée (téléchargement modèle ONNX la 1re fois).
 - Prochaine étape : T7 (finir : check de démarrage bloquant — l'instrumentation
   429/http_err/parse_err est déjà faite).
+
+## 2026-07-14 — T6 fix Node 22 + T7 complet
+- **Run GH Actions #1 a échoué** : `@supabase/supabase-js` v2.110 (RealtimeClient)
+  exige le WebSocket natif → Node 22+ (« native WebSocket not found » sous Node
+  20). Corrigé : `node-version: 20 → 22` dans le workflow (aligné machine locale
+  22.13). À repousser + relancer un `workflow_dispatch`.
+- **T7 terminé** : check de démarrage `checkEnv()` en tête de `main()`
+  (`scripts/ingest.ts`). Requises (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+  GROQ_API_KEY) manquantes/vides (`?.trim()`) → message net + `exit 1` À LA
+  SECONDE 0 (avant tout réseau). Optionnelles vides (GROQ_MODEL_ENRICH/SMART) →
+  warning + défaut code. Vérifié depuis un dossier sans `.env` (= conditions CI,
+  `injected env (0)`). Répond au symptôme du run #1 (secret absent = erreur
+  immédiate, pas plantage obscur 3 min plus tard).
+- T7 = intégralement fait (instrumentation Groq + check démarrage).
+- Reste J0 : T8 (/api/sources : onConflict:"id" + summary=null → enrich immédiat
+  + nommage auto), T9 (sécurité routes + zod), T10 (UI honnête), T11 (vitest/CI).
+- Prochaine étape : T8.

@@ -26,7 +26,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 22+ requis : @supabase/supabase-js v2.110 (RealtimeClient) a
+          # besoin du WebSocket natif, absent avant Node 22 (« native WebSocket
+          # not found »). Aligné sur la machine locale (Node 22.13).
+          node-version: 22
           cache: npm
 
       - name: Install
