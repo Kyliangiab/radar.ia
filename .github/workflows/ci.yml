@@ -1,0 +1,36 @@
+# CI — bloque le merge si le code casse (typecheck + tests). Lint = report-only.
+# Node 22 (cohérent avec le cron d'ingestion / supabase-js v2.110).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # ── Gates BLOQUANTS ──
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests (vitest)
+        run: npm run test
+
+      # ── Lint : non bloquant pour l'instant (dette : ~10 no-unescaped-entities
+      #    à nettoyer avant de le rendre bloquant). ──
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true

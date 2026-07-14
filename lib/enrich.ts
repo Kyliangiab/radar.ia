@@ -61,10 +61,14 @@ const arr3 = (v: unknown): string[] | null => {
   return out.length ? out : null;
 };
 
-/** Classe + enrichit un article via Groq. Sans clé / erreur : catégorie d'origine, champs null. */
-export async function enrich(a: Article): Promise<Enrichment> {
-  const fallback: Enrichment = {
-    category: DOMAINS.includes(a.category) ? a.category : "tech",
+/**
+ * Mappe la réponse JSON de Groq (`Raw`) → `Enrichment`. Fonction PURE (sans
+ * réseau) → testable. `parsed=null` ⇒ pas de clé Groq (`failReason="config"`).
+ * La VO (*Orig) n'est plus générée ici (ADR-0002) : null.
+ */
+export function parseEnrichment(parsed: Raw | null, fallbackCategory: CategoryId): Enrichment {
+  const empty = (failReason: EnrichFail): Enrichment => ({
+    category: fallbackCategory,
     summary: null,
     summaryOrig: null,
     keyPoints: null,
@@ -72,8 +76,25 @@ export async function enrich(a: Article): Promise<Enrichment> {
     pullquote: null,
     pullquoteOrig: null,
     whyItMatters: null,
+    failReason,
+  });
+  if (!parsed) return empty("config");
+  return {
+    category: DOMAINS.includes(parsed.category) ? parsed.category : fallbackCategory,
+    summary: parsed.summary ?? null,
+    summaryOrig: null,
+    keyPoints: arr3(parsed.points),
+    keyPointsOrig: null,
+    pullquote: parsed.pullquote ?? null,
+    pullquoteOrig: null,
+    whyItMatters: parsed.whyItMatters ?? null,
     failReason: "none",
   };
+}
+
+/** Classe + enrichit un article via Groq. Sans clé / erreur : catégorie d'origine, champs null. */
+export async function enrich(a: Article): Promise<Enrichment> {
+  const fallbackCategory: CategoryId = DOMAINS.includes(a.category) ? a.category : "tech";
   try {
     const snippet = (a.snippet || "").slice(0, ENRICH_INPUT_MAX_CHARS);
     const parsed = await groqJSON<Raw>({
@@ -82,25 +103,11 @@ export async function enrich(a: Article): Promise<Enrichment> {
       model: groqModelEnrich(),
       maxTokens: ENRICH_MAX_TOKENS,
     });
-    // parsed === null ⇒ pas de clé Groq (échec systémique, pas 429).
-    if (!parsed) return { ...fallback, failReason: "config" };
-    // La VO (*Orig) n'est plus générée ici (ADR-0002) : traduite à la demande
-    // via /api/translate. On garde les champs à null (colonnes conservées).
-    return {
-      category: DOMAINS.includes(parsed.category) ? parsed.category : fallback.category,
-      summary: parsed.summary ?? null,
-      summaryOrig: null,
-      keyPoints: arr3(parsed.points),
-      keyPointsOrig: null,
-      pullquote: parsed.pullquote ?? null,
-      pullquoteOrig: null,
-      whyItMatters: parsed.whyItMatters ?? null,
-      failReason: "none",
-    };
+    return parseEnrichment(parsed, fallbackCategory);
   } catch (err) {
     // Cause portée par l'erreur (429 / http / parse). Défaut prudent : "http".
     const cause = (err as GroqError).groqFailure ?? "http";
-    return { ...fallback, failReason: cause };
+    return { ...parseEnrichment(null, fallbackCategory), failReason: cause };
   }
 }
 
@@ -119,15 +126,26 @@ export interface EnrichOutcome {
   status: EnrichStatus;
 }
 
-export async function enrichOutcome(a: Article, priorAttempts: number): Promise<EnrichOutcome> {
-  const e = await enrich(a);
-  const ok = !!e.summary?.trim();
-  // ADR-0005 (révisé) : un 429 = surcharge de charge, PAS la faute de l'article.
-  // On ne consomme une tentative que pour les échecs imputables au contenu/à
-  // l'API (parse / http / clé absente). Sinon un pic de charge condamnerait
-  // définitivement des articles valides (c'est ce qui est arrivé aux 4 failed).
-  const consumesAttempt = !ok && e.failReason !== "rate429";
+/**
+ * Décision PURE de la machine à états (ADR-0005) → testable sans réseau.
+ * `rate429` = surcharge de charge, PAS la faute de l'article : ne consomme PAS
+ * de tentative (sinon un pic de 429 condamnerait des articles valides). Les
+ * échecs imputables (parse / http / clé absente) incrémentent ; à 3 → failed.
+ */
+export function decideOutcome(
+  summary: string | null | undefined,
+  failReason: EnrichFail,
+  priorAttempts: number,
+): { ok: boolean; attempts: number; status: EnrichStatus } {
+  const ok = !!summary?.trim();
+  const consumesAttempt = !ok && failReason !== "rate429";
   const attempts = consumesAttempt ? priorAttempts + 1 : priorAttempts;
   const status: EnrichStatus = ok ? "ok" : attempts >= 3 ? "failed" : "pending";
+  return { ok, attempts, status };
+}
+
+export async function enrichOutcome(a: Article, priorAttempts: number): Promise<EnrichOutcome> {
+  const e = await enrich(a);
+  const { ok, attempts, status } = decideOutcome(e.summary, e.failReason, priorAttempts);
   return { e, ok, attempts, status };
 }

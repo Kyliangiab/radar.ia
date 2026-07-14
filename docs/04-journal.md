@@ -13,7 +13,30 @@
   tournent sur Node 24 forcé (déprécation Node 20 côté actions) — cosmétique.
 - **J0 : reste uniquement T11 (vitest + CI).**
 
+## 2026-07-15 — T11 vitest + CI (J0 terminé)
+- **vitest** ajouté (+ config, alias `@`). Scripts : `typecheck`, `test`,
+  `test:watch`. `lib/enrich.ts` refactor : extraction de 2 fonctions PURES
+  (`parseEnrichment`, `decideOutcome`) réutilisées par enrich/enrichOutcome
+  (comportement inchangé) pour les rendre testables.
+- **Tests (19, tous verts)** : `lib/url.test.ts` (canonicalUrl, migré node:test→
+  vitest), `lib/enrich.test.ts` (parsing + machine à états ADR-0005 dont
+  « 429 ne consomme pas de tentative »), `app/api/feed/gate.test.ts` (gate
+  `enrich_status='ok'` + `?uid=` ignoré, supabase mocké).
+- **ESLint** installé (eslint 8.57 + eslint-config-next 14.2.35 + `.eslintrc.json`
+  `next/core-web-vitals`). `next.config.mjs` : `eslint.ignoreDuringBuilds=true`
+  (sinon `next build` échouait sur le lint → aurait cassé Vercel).
+- **CI** `.github/workflows/ci.yml` : sur PR + push main, Node 22, `npm ci` →
+  typecheck + test **bloquants**, lint **non bloquant** (`continue-on-error`).
+- Vérif : test 19/19 ✓ · typecheck ✓ · `next build` ✓.
+- **Action Kylian (hors code)** : protéger `main` → Settings → Branches → règle
+  → « Require status checks to pass » → cocher le job `check`. Sinon la CI
+  tourne mais ne bloque pas réellement le merge.
+- **J0 TERMINÉ** (T1→T11). Reste hors J0 : migration Next 15, tests navigateur.
+
 ## Dette / à traiter
+- **[lint] ~10 `react/no-unescaped-entities`** (apostrophes JSX) + 1 warning
+  exhaustive-deps. À nettoyer, puis rendre le lint BLOQUANT en CI (retirer
+  `continue-on-error` + `ignoreDuringBuilds`).
 - ~~[CRITIQUE] Next.js 14.2.15 = vulnérabilité critique~~ → **CVE CRITIQUE
   RÉGLÉE le 2026-07-15** : bump `next@14.2.35` (drop-in, 0 breaking change).
   Le critique « Authorization Bypass in Middleware » (GHSA-f82v-jwr5-mffw)
