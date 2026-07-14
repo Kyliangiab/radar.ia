@@ -103,3 +103,31 @@ export async function enrich(a: Article): Promise<Enrichment> {
     return { ...fallback, failReason: cause };
   }
 }
+
+// ── Machine à états d'enrichissement (ADR-0005) — source unique ──
+// Utilisée par l'ingest (cron) ET par /api/sources (flux perso) : tout chemin
+// d'ingestion DOIT passer par cet état. Un enrichissement raté ne produit
+// JAMAIS de ligne "vide et servie" : la ligne reste `pending` (métadonnées
+// brutes conservées) et `enrich_attempts` grimpe ; à 3 tentatives → `failed`.
+// Seul `ok` est servi au feed.
+export type EnrichStatus = "ok" | "pending" | "failed";
+
+export interface EnrichOutcome {
+  e: Enrichment;
+  ok: boolean;
+  attempts: number;
+  status: EnrichStatus;
+}
+
+export async function enrichOutcome(a: Article, priorAttempts: number): Promise<EnrichOutcome> {
+  const e = await enrich(a);
+  const ok = !!e.summary?.trim();
+  // ADR-0005 (révisé) : un 429 = surcharge de charge, PAS la faute de l'article.
+  // On ne consomme une tentative que pour les échecs imputables au contenu/à
+  // l'API (parse / http / clé absente). Sinon un pic de charge condamnerait
+  // définitivement des articles valides (c'est ce qui est arrivé aux 4 failed).
+  const consumesAttempt = !ok && e.failReason !== "rate429";
+  const attempts = consumesAttempt ? priorAttempts + 1 : priorAttempts;
+  const status: EnrichStatus = ok ? "ok" : attempts >= 3 ? "failed" : "pending";
+  return { e, ok, attempts, status };
+}

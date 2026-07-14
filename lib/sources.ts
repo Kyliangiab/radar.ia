@@ -207,10 +207,20 @@ export async function fetchRSS(feed: FeedSource): Promise<Article[]> {
   return out;
 }
 
+// Nom de source lisible à partir du <title> du flux, sinon repli sur le hostname.
+// Rejette les titres inexploitables (vides, tronqués "…", ou trop longs =
+// titre d'article et non nom de source, cf. "Immobilier : Toute l'actualité…").
+function cleanFeedName(rawTitle: string | undefined, host: string): string {
+  const t = (rawTitle ?? "").replace(/\s+/g, " ").trim();
+  const usable = t && t.length <= 60 && !/(?:…|\.\.\.)$/.test(t);
+  return usable ? t : host || "Source RSS";
+}
+
 /**
  * Flux RSS ajouté par un utilisateur : parse une fois pour récupérer le NOM
  * auto (feed.title) + les articles récents. Renvoie null si l'URL n'est pas un
- * flux valide. Pas d'IA ici (l'ajout doit être rapide) : le cron enrichira.
+ * flux valide. Pas d'IA ici : l'enrichissement est fait par l'appelant
+ * (/api/sources en direct, cap 10) ou le cron.
  */
 export async function collectUserFeed(
   url: string,
@@ -225,8 +235,10 @@ export async function collectUserFeed(
   try {
     host = new URL(url).hostname.replace(/^www\./, "");
   } catch {}
-  const name = parsed.title?.trim() || host || "Source RSS";
+  const name = cleanFeedName(parsed.title, host);
   const articles = await fetchRSS({ name, url, type: "rss", defaultCategory: "tech" });
+  // URL canonique (règle #5) : clé de dédup/upsert cohérente en aval (T4/T8).
+  for (const a of articles) a.url = canonicalUrl(a.url);
   return { name, articles };
 }
 

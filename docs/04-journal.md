@@ -3,6 +3,15 @@
 > Mis à jour par Claude Code en fin de chaque session.
 > Format : date · fait / en cours / bloqué / prochaine étape.
 
+## Dette / à traiter
+- **[CRITIQUE — J1, bloquant vente école/fac] Next.js 14.2.15 = vulnérabilité
+  critique.** Signalée par `npm ci` en CI. Réf :
+  https://nextjs.org/blog/security-update-2025-12-11 . Bump Next à une version
+  patchée à traiter EN PRIORITÉ en J1 (une école/fac ne signera pas avec une
+  CVE critique ouverte). Détecté le 2026-07-14.
+- ~~[T8] `app/api/sources/route.ts` : `onConflict:"id"` + insert `summary=null`~~
+  → **SOLDÉ** (T8 fait le 2026-07-14) : `onConflict:"url"` + enrich/embed immédiat.
+
 ## 2026-07-14 — Initialisation
 - Fait : paquet de docs installé (vision, plan, schéma v2, 6 ADR,
   migration 0011, workflow d'ingestion). HUGGINGFACE_API_KEY créée
@@ -144,3 +153,26 @@
 - Reste J0 : T8 (/api/sources : onConflict:"id" + summary=null → enrich immédiat
   + nommage auto), T9 (sécurité routes + zod), T10 (UI honnête), T11 (vitest/CI).
 - Prochaine étape : T8.
+
+## 2026-07-14 — T8 /api/sources enrichit immédiatement
+- `enrichOutcome` + type `EnrichStatus` déplacés dans `lib/enrich.ts` (exportés)
+  → machine à états à source UNIQUE, partagée ingest + route (ADR-0005).
+- `lib/embeddings.ts` : appel HF factorisé (`hfEmbed`) → `embedQuery` (query:) +
+  nouveau `embedDocumentHosted` (passage:). Parité mesurée cosinus **1.000** vs
+  embed ONNX local. Sert les routes serverless (ONNX local trop lourd, ADR-0001).
+- `collectUserFeed` : `cleanFeedName` (rejette titre vide / > 60 car. / tronqué
+  "…" → hostname ; corrige "Immobilier : Toute l'actualité…") + URLs canoniques.
+- `app/api/sources` POST : `maxDuration=60`, cap 10, dédup canonique, détection
+  "déjà présent" (remplace `ignoreDuplicates` — ne réécrit jamais `user_id`),
+  puis pour chaque nouvel article : `enrichOutcome` → upsert `onConflict:"url"`
+  AVANT embedding (leçon FK T3) → embed HF best-effort. Réponse honnête
+  `{name,count,fresh,ok,pending}`. Un enrich raté = `pending`/`failed` repris
+  par le cron. **Plus aucun `onConflict:"id"` en code** (dette soldée).
+- Vérif : tsc ✓ · nommage 5/5 ✓ · parité embed 1.000 ✓ · `collectUserFeed`
+  URLs canoniques ✓ · chemin de stockage complet testé contre DB prod (article
+  synthétique inséré `ok`+embedding puis supprimé, cascade OK) ✓.
+- Non testé en CLI : wrapper HTTP auth (Bearer→user_id, inchangé). Test navigateur
+  réel = ajouter un flux perso → voir les articles enrichis au feed immédiatement.
+- Reste J0 : T9 (sécurité routes + rate limit + zod ; supprimer /api/summarize),
+  T10 (UI honnête), T11 (vitest/CI). + dette : bump Next (CVE critique, J1).
+- Prochaine étape : T9.

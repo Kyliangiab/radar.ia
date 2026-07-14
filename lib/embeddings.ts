@@ -32,24 +32,25 @@ export function embedDocument(text: string): Promise<number[]> {
   return run(`passage: ${text.slice(0, 1200)}`);
 }
 
-// Embedding de la REQUÊTE via HF Inference API (hébergé) — même modèle e5-base
-// que les documents (→ vecteurs comparables), ~200 ms au lieu du cold-start
-// ONNX local (~4 min en serverless). Voir README : c'était LE bug de la recherche.
-const HF_QUERY_URL =
+// Embedding HÉBERGÉ via HF Inference API — même modèle e5-base que l'embedding
+// local (→ vecteurs comparables), ~200 ms au lieu du cold-start ONNX local
+// (~minutes en serverless). Sert la recherche ET l'ajout de flux perso
+// (/api/sources), routes serverless où l'ONNX local est trop lourd (ADR-0001).
+const HF_EMBED_URL =
   "https://router.huggingface.co/hf-inference/models/intfloat/multilingual-e5-base/pipeline/feature-extraction";
 
-/** Embedding d'une requête de recherche (hébergé HF). */
-export async function embedQuery(text: string): Promise<number[]> {
+// e5 exige un préfixe : "query: " pour les requêtes, "passage: " pour les docs.
+async function hfEmbed(prefixed: string): Promise<number[]> {
   const key = process.env.HUGGINGFACE_API_KEY;
   if (!key) throw new Error("HUGGINGFACE_API_KEY manquant");
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const res = await fetch(HF_QUERY_URL, {
+    const res = await fetch(HF_EMBED_URL, {
       method: "POST",
       signal: ctrl.signal,
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ inputs: `query: ${text.slice(0, 512)}` }),
+      body: JSON.stringify({ inputs: prefixed }),
     });
     if (!res.ok) throw new Error(`HF ${res.status}: ${await res.text().catch(() => "")}`);
     const vec = await res.json();
@@ -60,4 +61,15 @@ export async function embedQuery(text: string): Promise<number[]> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Embedding d'une requête de recherche (hébergé HF). */
+export function embedQuery(text: string): Promise<number[]> {
+  return hfEmbed(`query: ${text.slice(0, 512)}`);
+}
+
+/** Embedding d'un document (hébergé HF) — pour les routes serverless (ex.
+ * /api/sources). Vecteurs compatibles avec `embedDocument` local (même modèle). */
+export function embedDocumentHosted(text: string): Promise<number[]> {
+  return hfEmbed(`passage: ${text.slice(0, 1200)}`);
 }

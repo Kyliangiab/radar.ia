@@ -12,7 +12,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" }); // même fichier que l'app Next
 config(); // repli sur .env si présent (n'écrase pas)
 import { collectAll } from "../lib/sources";
-import { enrich } from "../lib/enrich";
+import { enrichOutcome } from "../lib/enrich";
 import { embedDocument } from "../lib/embeddings";
 import { getSupabase } from "../lib/supabase";
 import { getAiStats, resetAiStats } from "../lib/ai";
@@ -39,25 +39,6 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return out;
-}
-
-// ── Machine à états d'enrichissement (ADR-0005) ──
-// Un enrichissement raté ne produit JAMAIS de ligne "vide et servie" : la ligne
-// reste `pending` (métadonnées brutes conservées) et `enrich_attempts` grimpe ;
-// à 3 tentatives elle passe `failed` (on arrête de payer). Seul `ok` est servi.
-type EnrichStatus = "ok" | "pending" | "failed";
-
-async function enrichOutcome(a: Article, priorAttempts: number) {
-  const e = await enrich(a);
-  const ok = !!e.summary?.trim();
-  // ADR-0005 (révisé) : un 429 = surcharge de charge, PAS la faute de l'article.
-  // On ne consomme une tentative que pour les échecs imputables au contenu/à
-  // l'API (parse / http / clé absente). Sinon un pic de charge condamnerait
-  // définitivement des articles valides (c'est ce qui est arrivé aux 4 failed).
-  const consumesAttempt = !ok && e.failReason !== "rate429";
-  const attempts = consumesAttempt ? priorAttempts + 1 : priorAttempts;
-  const status: EnrichStatus = ok ? "ok" : attempts >= 3 ? "failed" : "pending";
-  return { e, ok, attempts, status };
 }
 
 // Ligne DB `articles` → forme Article (pour ré-enrichir les `pending`).
